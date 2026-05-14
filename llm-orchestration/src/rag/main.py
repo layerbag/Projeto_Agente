@@ -1,7 +1,7 @@
 import os
 import platform
 from dotenv import load_dotenv
-from src.rag.rag_chain import criar_rag_chain
+from src.rag.rag_chain import app
 from src.rag.vector_store import carregar_vector_store
 from src.rag.ingestao import extrair_informacoes, extrair_transcricao, dividir_em_chunks, load_pdf, yt2doc
 from src.mlops.observability import rag_com_rastreamento
@@ -108,7 +108,7 @@ def main():
             
 
         elif operacao == "c":
-            chain = criar_rag_chain()
+            config = {"configurable": {"thread_id": "sessao-123"}}
 
             while True:
                 pergunta = input("\nDigite sua pergunta (ou \"sair\" para encerrar): ").strip()
@@ -119,8 +119,11 @@ def main():
                 if not pergunta:
                     continue
         
-                resposta = rag_com_rastreamento(chain, pergunta)
-                print(f"\nResposta: {resposta['resposta']}, Tempo gasto: {resposta['tempo_gasto']:.2f} segundos")
+                resposta = app.invoke(
+                    {"query": pergunta},
+                    config = config
+                )
+                print(f"\nResposta: {resposta['response']}")
         
         elif operacao == "sair":
             print("Encerrando o programa.")
@@ -130,6 +133,7 @@ def main():
         
 
 if __name__ == "__main__":
+    carregar_vector_store()
     main()
 
     # indexar_se_necessario()

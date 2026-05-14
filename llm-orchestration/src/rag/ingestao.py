@@ -60,7 +60,7 @@ def extrair_transcricao(video_id: str):
 
 # Dividir os documentos em chunks menores para indexação
 def dividir_em_chunks(pdf_docs: list = None, yt_docs: list = None): # type: ignore
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200, separators=["\n\n", " ", ""] )
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150, separators=["\n\n", " ", ""] )
     all_docs = []
 
     if pdf_docs and len(pdf_docs) > 0:

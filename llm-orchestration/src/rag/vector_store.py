@@ -4,6 +4,7 @@ from langchain_community.vectorstores import Chroma
 from dotenv import load_dotenv
 
 load_dotenv()
+_embeddings = None
 
 CHROMA_DIR = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma_db")
 COLLECTION = "youtube_videos"
@@ -11,7 +12,13 @@ COLLECTION = "youtube_videos"
 # configura o modelo de embeddings
 def get_embeddings():
     """Configura e retorna o modelo de embeddings."""
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2", model_kwargs={"device": "cuda"})
+    global _embeddings
+
+    if _embeddings is None:
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-mpnet-base-v2"
+        )
+    return _embeddings
 
 # Funções para criar, carregar e adicionar ao vector store do Chroma
 def criar_vector_store(chunks): # type: ignore
@@ -40,8 +47,8 @@ def carregar_vector_store():
     """Carrega o vector store do Chroma existente."""
     return Chroma(
         persist_directory=CHROMA_DIR,
-        embedding_function=get_embeddings(),
         collection_name=COLLECTION,
+        embedding_function=get_embeddings()
     )
 
 def busca_semantica(query:str, k:int = 3):

@@ -5,15 +5,17 @@ import time
 client = Client()
 
 @traceable(name="rag_query")
-def rag_com_rastreamento(chain, pergunta: str) -> dict[str, float]: # type: ignore
+def rag_com_rastreamento(chain, pergunta: str, config: dict) -> dict[str, float]: # type: ignore
     """Executa uma consulta RAG com rastreamento usando LangSmith."""
     start_time = time.time()
     if pergunta.lower().__contains__("documento") or pergunta.lower().__contains__("pdf"):
-        resposta = chain.invoke({"query": pergunta, "filter": {"type": "pdf"}})
+        base_input = {"query": pergunta, "filter": {"type": "pdf"}}
     elif pergunta.lower().__contains__("vídeo") or pergunta.lower().__contains__("video"):
-        resposta = chain.invoke({"query": pergunta, "filter": {"type": "YouTube"}})
+        base_input = {"query": pergunta, "filter": {"type": "YouTube"}}
     else:
-        resposta = chain.invoke({"query": pergunta})
+        base_input = {"query": pergunta}
+
+    resposta = chain.invoke(base_input, config={"configurable": {"session_id": "sessao-123"}})  # type: ignore
 
     latencia = time.time() - start_time
 
