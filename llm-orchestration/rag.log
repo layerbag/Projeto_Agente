@@ -1,0 +1,182 @@
+2026-05-15 10:37:43,179 | INFO | Retrieved 4 docs
+2026-05-15 10:37:43,180 | INFO | ==================================================
+2026-05-15 10:37:43,180 | INFO | QUERY: oque você sabe sobre o Gabriel Martins Gomes?
+2026-05-15 10:37:43,180 | INFO | [DOC 1] type=pdf source=pdf
+2026-05-15 10:37:43,180 | INFO | Conteúdo:
+        Gabriel Martins Gomes
+Goiânia, GO, Brasil
+gabrielmgomes08@gmail.com
+(62) 99699-4045
+linkedin.com/in/gabrielmartins08
+github.com/layerbag
+
+Resumo Profissional
+Engenheiro de Dados com 
+2026-05-15 10:37:43,180 | INFO | [DOC 2] type=unknown source=unknown
+2026-05-15 10:37:43,180 | INFO | Conteúdo: 
+    O iceberg das curiosidades de ordem paranormal. Eu sei, eu sei, eu tô um pouco, bastante, muito, na verdade, atrasado para fazer vídeo de iceberg, mas antes tarde do que nunca. Para voc
+2026-05-15 10:37:43,180 | INFO | [DOC 3] type=unknown source=unknown
+2026-05-15 10:37:43,180 | INFO | coisa que tá aí por algum motivo. É, o aniversário do Celtt é 11/02, né? 11 de fevereiro, talvez, sei lá, 4:13 é a hora que ele nasceu, não sei. E aí é por isso que esses números estão em todo lugar. 
+2026-05-15 10:37:43,180 | INFO | [DOC 4] type=unknown source=unknown
+2026-05-15 10:37:43,180 | INFO | tem o lance desse thanos não ser exatamente o thanos que eles enfrentaram lá em guerra infinita então ele nem reconhece esses personagens 
+Vanda falando você tirou tudo de mim aí o thanos olha para el
+2026-05-15 10:37:43,180 | INFO | ==================================================
+2026-05-15 10:37:43,181 | INFO | retrieve_docs took 3.69s
+2026-05-15 10:37:43,822 | INFO | Response length: 805
+2026-05-15 10:37:43,822 | INFO | generate_answer took 0.64s
+2026-05-15 10:47:17,704 | INFO | Retrieved 5 docs
+2026-05-15 10:47:17,704 | INFO | ==================================================
+2026-05-15 10:47:17,704 | INFO | QUERY: oque significa uzumaki?
+2026-05-15 10:47:17,704 | INFO | [DOC 1] type=unknown source=unknown
+2026-05-15 10:47:17,705 | INFO | >> O no em japonês é uma partícula que vai ligar dois substantivos.
+>> Então eu tenho raro, que significa primavera e sakura, que é forte de cerejeira.
+>> Então, e quando tem esse no, o que vem na fre
+2026-05-15 10:47:17,705 | INFO | [DOC 2] type=unknown source=unknown
+2026-05-15 10:47:17,705 | INFO | Hataque significa lavoura.
+Kakashi. [risadas] 
+Hataque significa lavoura.
+Onde você vai plantar suas verduras. Isso é rataqué.
+Kakash é espantalho.
+Então espantalho no campo de produtos agrícolas. >> 
+2026-05-15 10:47:17,705 | INFO | [DOC 3] type=unknown source=unknown
+2026-05-15 10:47:17,705 | INFO | Ordalamitas entre os episódios 5 e 6 de calamidade
+invasão da relíquia de morte 
+jogos do anfitrião 
+aparecendo 
+67 depois de Cristo 
+2021
+2026-05-15 10:47:17,705 | INFO | [DOC 4] type=unknown source=unknown
+2026-05-15 10:47:17,705 | INFO | e cobra de oito cabeças, acho. É. >> E tem uma outra, >> eu falei oito rabos, né? É, mas acho que é acho que é oito rabos também. Acho que são oito rabos e oito cabeças.
+2026-05-15 10:47:17,705 | INFO | [DOC 5] type=unknown source=unknown
+2026-05-15 10:47:17,705 | INFO | este genin? Tem guenin, >> tuning e junin. 
+Ah, existe os prefixos de jo que são jo significa em cima. é centro e G é embaixo. 
+Então em vez de falar A, B, C >> na no Japão clássico, usava-se jo para 
+2026-05-15 10:47:17,705 | INFO | ==================================================
+2026-05-15 10:47:17,705 | INFO | retrieve_docs took 4.84s
+2026-05-15 10:47:18,332 | INFO | Response length: 667
+2026-05-15 10:47:18,332 | INFO | generate_answer took 0.62s
+2026-05-15 10:53:04,316 | INFO | Retrieved 5 docs
+2026-05-15 10:53:04,316 | INFO | ==================================================
+2026-05-15 10:53:04,316 | INFO | QUERY: qual o significado de orochimaru?
+2026-05-15 10:53:04,316 | INFO | [DOC 1] type=unknown source=https://www.youtube.com/watch?v=hYuH5lmBsSs
+2026-05-15 10:53:04,316 | INFO | Conteúdo: 
+    Tá s quero que a senhora me explique o significado dos nomes do Naruto. Bom, eu não conheço os personagens, mas eu posso tentar explicar o significado do que ele se do que eles a que el
+2026-05-15 10:53:04,316 | INFO | [DOC 2] type=unknown source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 10:53:04,316 | INFO | pô. Eita, gigante o fone, pô. Engraçado. O ZX seri um fone meio intermediário assim. Eh, e aqui tá me parecendo uma coisa um pouco mais rebuscada. Deixa eu ver o cabo. Qual é? Tá, é esse mesmo do últi
+2026-05-15 10:53:04,316 | INFO | [DOC 3] type=unknown source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 10:53:04,317 | INFO | gosto demais. Tem o Z12, eh, que é o quê? São várias BAs. Por lado, a Kaz costuma dar uma uma zoada maneira quando ela coloca só BA, mas eh Ah, não, tem dois dinâmicos e quatro BAs, tá? É híbrido. Aí 
+2026-05-15 10:53:04,317 | INFO | [DOC 4] type=unknown source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 10:53:04,317 | INFO | acho que ele tenha exatamente a mesma pegada tão energética, eh, que para mim sempre caracterizou os S10. Cara, bom fone também. É, ó, vamos lá. Eh, que que eu aprendi aqui? Aparentemente, de fato, as
+2026-05-15 10:53:04,317 | INFO | [DOC 5] type=unknown source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 10:53:04,317 | INFO | o Clube Cafezeiro, que é o clube de assinatura. Eu sou muito fã dos cafés da Encantos, assim, essa última safra do raro assim, tá realmente é uma das poucas situações em que eu olho e eu falo: "Cara, 
+2026-05-15 10:53:04,317 | INFO | ==================================================
+2026-05-15 10:53:04,317 | INFO | retrieve_docs took 2.65s
+2026-05-15 10:53:04,902 | INFO | Response length: 444
+2026-05-15 10:53:04,902 | INFO | generate_answer took 0.58s
+2026-05-15 10:57:49,944 | INFO | Retrieved 5 docs
+2026-05-15 10:57:49,944 | INFO | ==================================================
+2026-05-15 10:57:49,944 | INFO | QUERY: fale sobre a saga corrida mortal
+2026-05-15 10:57:49,944 | INFO | [DOC 1] type=unknown source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 10:57:49,944 | INFO | pessoa com um carro que tem uma metralhadora, entendeu? Você tá torcendo pro Jason Statam em corrida mortal. Uma franquia que ficou muito esquecida. Aliás, muita gente nem sabe o que é uma franquia, m
+2026-05-15 10:57:49,944 | INFO | [DOC 2] type=unknown source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 10:57:49,944 | INFO | e assim nasceu a corrida mortal. >> Corrida mortal. Olha só. >> E essa altura do campeonato, você já não sabe muito bem o que tá acontecendo. Uma hora de filme não tem nada de corrida mortal, né? Afin
+2026-05-15 10:57:49,945 | INFO | [DOC 3] type=unknown source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 10:57:49,945 | INFO | gladiadores do terceiro milênio. [ __ ] >> São os gladiadores do terceiro milênio. >> Acontece que com o passar do tempo, as pessoas já não viam mais graça em ver gente se matando. E aí os gestores da
+2026-05-15 10:57:49,945 | INFO | [DOC 4] type=unknown source=https://www.youtube.com/watch?v=Oz7HsFU12FE
+2026-05-15 10:57:49,945 | INFO | Conteúdo: 
+    Olá pessoas eu sou o Léo e eu sou Miguel e esse é o canal pii finalmente depois de muito tempo a gente chegou nele o filme que finaliza A Saga do infinito Onde teremos o embate dos Ving
+2026-05-15 10:57:49,945 | INFO | [DOC 5] type=unknown source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 10:57:49,945 | INFO | >> Eu adoro esse jogo. >> Errou". >> Seis meses depois eles estão juntos. Frank e Machine Gun Joe. Lembra aquilo que eu falei sobre o Machine Gun Joe supostamente ser gay? Aqui no final isso se comple
+2026-05-15 10:57:49,945 | INFO | ==================================================
+2026-05-15 10:57:49,945 | INFO | retrieve_docs took 3.21s
+2026-05-15 10:57:50,650 | INFO | Response length: 1029
+2026-05-15 10:57:50,650 | INFO | generate_answer took 0.70s
+2026-05-15 10:59:29,381 | INFO | Retrieved 5 docs
+2026-05-15 10:59:29,382 | INFO | ==================================================
+2026-05-15 10:59:29,382 | INFO | QUERY: quem dirigiu o filme?
+2026-05-15 10:59:29,382 | INFO | [DOC 1] type=unknown source=https://www.youtube.com/watch?v=e5daM2ORyxU
+2026-05-15 10:59:29,382 | INFO | faz esse vídeo mais também para abrir é o diálogo com vocês, tá? Vocês assistiram esse filme ou ou passou longe do radar de vocês o grande ataque brutal ou do inglês trash? Digam também o que vocês ac
+2026-05-15 10:59:29,382 | INFO | [DOC 2] type=unknown source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 10:59:29,382 | INFO | um pouco os preços. Opa, fiquei tonto. >> Ó, e um detalhe interessante que você já pode perceber é a quantidade de atores famosos que tem nesse filme aqui. Tem a Meg >> famosos mais ou menos, né? >> Ó
+2026-05-15 10:59:29,382 | INFO | [DOC 3] type=unknown source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 10:59:29,382 | INFO | Conteúdo: 
+    Olá pessoas, eu sou o Léo. E eu sou Miguel. E esse é o canal Pii. Tem uma categoria de filmes que você já deve ter visto na casa do seu tio ou trocando de canal, sempre acontecendo uma 
+2026-05-15 10:59:29,382 | INFO | [DOC 4] type=unknown source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 10:59:29,382 | INFO | amarelo para ele. >> É, mas é que aí tu perdeu a genialidade, porque o Marcos fala que um carro muito chamativo não chamaria atenção. Seria como se ele fosse uma uma pessoa do povo, entendeu? Vamos di
+2026-05-15 10:59:29,382 | INFO | [DOC 5] type=unknown source=https://www.youtube.com/watch?v=Oz7HsFU12FE
+2026-05-15 10:59:29,382 | INFO | e falando coisas que você não sabe deveria fazer a sua parte também é que esse filme é uma linda realização executiva né de anos da da Marvel anos do mcu sendo construído então tipo assim é difícil às
+2026-05-15 10:59:29,383 | INFO | ==================================================
+2026-05-15 10:59:29,383 | INFO | retrieve_docs took 2.71s
+2026-05-15 10:59:31,007 | INFO | Response length: 519
+2026-05-15 10:59:31,007 | INFO | generate_answer took 1.62s
+2026-05-15 11:00:15,467 | INFO | Retrieved 5 docs
+2026-05-15 11:00:15,467 | INFO | ==================================================
+2026-05-15 11:00:15,467 | INFO | QUERY: quanto custou e quanto fez de bilheteria?
+2026-05-15 11:00:15,467 | INFO | [DOC 1] type=unknown source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 11:00:15,467 | INFO | Conteúdo: 
+    Que que a Kaz anda fazendo, hein? Se você tá nesse vídeo, você certamente conhece a Kazê, sabe o quanto ela já foi emblemática, mas também o quanto ela de certa forma tem perdido um pou
+2026-05-15 11:00:15,468 | INFO | [DOC 2] type=unknown source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 11:00:15,468 | INFO | os dois dinâmicos. Ele é bem trabalhado em termos de estética, mas é visivelmente simples. Deixa eu ver. Conforto e encaixe. Excelente. Isso custou ser muito bom na caseta também. Vamos ouvir, cara. t
+2026-05-15 11:00:15,468 | INFO | [DOC 3] type=unknown source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 11:00:15,468 | INFO | todas da Caseia, tá? Então assim, eh, certamente é um fone mais, eh, mais simples, mais barato, então tem aquele unboxing bem básico, tá? O cabo aqui, aquele cabo já padrão eh um pouco mais antigo da 
+2026-05-15 11:00:15,468 | INFO | [DOC 4] type=unknown source=https://www.youtube.com/watch?v=JsD1ewgzLJc&t=1293s
+2026-05-15 11:00:15,468 | INFO | porque a condição de morrendo não existia na época no RPG. E quando o Thigo morreu, ele só morreu de uma vez. O Dante é mais impressionante ainda, porque o Dante literalmente nunca zerou a vida. Nunca
+2026-05-15 11:00:15,468 | INFO | [DOC 5] type=unknown source=https://www.youtube.com/watch?v=Oz7HsFU12FE
+2026-05-15 11:00:15,468 | INFO | apenas algumas horas porque o fluxo a passagem de tempo no reino quântico é diferente é tipo o planeta de interstelar né É verdade por isso ele acredita que é possível entrar ali no túnel quântico ir 
+2026-05-15 11:00:15,468 | INFO | ==================================================
+2026-05-15 11:00:15,468 | INFO | retrieve_docs took 3.82s
+2026-05-15 11:00:16,170 | INFO | Response length: 557
+2026-05-15 11:00:16,170 | INFO | generate_answer took 0.70s
+2026-05-15 11:05:10,554 | INFO | Retrieved 5 docs
+2026-05-15 11:05:10,554 | INFO | ==================================================
+2026-05-15 11:05:10,555 | INFO | QUERY: quem dirigiu o filme super mario bros?
+2026-05-15 11:05:10,555 | INFO | [DOC 1] type=unknown título="Super Mario Bros. (1993)", o ERRO em LIVEACTION antes do SUCESSO em Animação | Filmes LIXO #053source=https://www.youtube.com/watch?v=E4LfchUjB0k
+2026-05-15 11:05:10,555 | INFO | começando mais um filmes lixo no canal Piui hoje sobre Super Mario de 93. Ou será que é um filme recheado de trufas? É, eu eu não concordo com esse título de lixo, mas daqui a pouco a gente vai ver. E
+2026-05-15 11:05:10,555 | INFO | [DOC 2] type=unknown título="Super Mario Bros. (1993)", o ERRO em LIVEACTION antes do SUCESSO em Animação | Filmes LIXO #053source=https://www.youtube.com/watch?v=E4LfchUjB0k
+2026-05-15 11:05:10,555 | INFO | Conteúdo: 
+    Olá [música] pessoas, eu sou o Léo. E eu sou Miguel. E esse é o canal Pii. Recentemente tivemos o lançamento do filme do Mário, uma animação que fez muito dinheiro e que empolgou todos 
+2026-05-15 11:05:10,555 | INFO | [DOC 3] type=unknown título="Super Mario Bros. (1993)", o ERRO em LIVEACTION antes do SUCESSO em Animação | Filmes LIXO #053source=https://www.youtube.com/watch?v=E4LfchUjB0k
+2026-05-15 11:05:10,555 | INFO | Lançado em 1993 com direção do casal Rock Morton e Annabel Junkel do filme DOA e uma porrada de videoclipes e do trio de roteiristas Parker Bennet Terry Hanté, dois irrelevantes e Ed Solomon de MIB, h
+2026-05-15 11:05:10,555 | INFO | [DOC 4] type=unknown título="Super Mario Bros. (1993)", o ERRO em LIVEACTION antes do SUCESSO em Animação | Filmes LIXO #053source=https://www.youtube.com/watch?v=E4LfchUjB0k
+2026-05-15 11:05:10,555 | INFO | Super Mario seria coisa de maluco. Numa cena para créditos, Spike Kig se encontram com o executivo japonês da Nintendo e e eles oferecem, olha, vamos fazer um um game aqui dos primos. Não deu, né? Não
+2026-05-15 11:05:10,555 | INFO | [DOC 5] type=unknown título="Super Mario Bros. (1993)", o ERRO em LIVEACTION antes do SUCESSO em Animação | Filmes LIXO #053source=https://www.youtube.com/watch?v=E4LfchUjB0k
+2026-05-15 11:05:10,555 | INFO | com [música] ele, esse filme aqui ele é desrespeitoso, porém também ele é, pô, cara, ele desrespeita o personagem, mas ele dá prazer isso pro Mário. Cara, o Mário pega muita gente nesse filme, ele enf
+2026-05-15 11:05:10,555 | INFO | ==================================================
+2026-05-15 11:05:10,556 | INFO | retrieve_docs took 2.01s
+2026-05-15 11:05:10,900 | INFO | Response length: 73
+2026-05-15 11:05:10,900 | INFO | generate_answer took 0.34s
+2026-05-15 11:06:11,963 | INFO | Retrieved 5 docs
+2026-05-15 11:06:11,963 | INFO | ==================================================
+2026-05-15 11:06:11,964 | INFO | QUERY: quanto custou e quanto faturou?
+2026-05-15 11:06:11,964 | INFO | [DOC 1] type=unknown título=Saga Corrida Mortal | Carros, SAFADEZA e alguma História kkk | PT.1source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 11:06:11,964 | INFO | vida, alguma coisa melhor e não vou abrir mão disso por nada. Corrida mortal custou 45 milhões e faturou 76. Não foi muita grana, mas foi um sucesso no home Vídeo. Eu aposto o meu que você já comprou 
+2026-05-15 11:06:11,964 | INFO | [DOC 2] type=unknown título=Como anda a KZ em 2026? Unboxing e Primeiras Impressões de Vários Modelos!source=https://www.youtube.com/watch?v=sCPe1CakBUQ
+2026-05-15 11:06:11,964 | INFO | Conteúdo: 
+    Que que a Kaz anda fazendo, hein? Se você tá nesse vídeo, você certamente conhece a Kazê, sabe o quanto ela já foi emblemática, mas também o quanto ela de certa forma tem perdido um pou
+2026-05-15 11:06:11,964 | INFO | [DOC 3] type=unknown título="Super Mario Bros. (1993)", o ERRO em LIVEACTION antes do SUCESSO em Animação | Filmes LIXO #053source=https://www.youtube.com/watch?v=E4LfchUjB0k
+2026-05-15 11:06:11,964 | INFO | Super Mario seria coisa de maluco. Numa cena para créditos, Spike Kig se encontram com o executivo japonês da Nintendo e e eles oferecem, olha, vamos fazer um um game aqui dos primos. Não deu, né? Não
+2026-05-15 11:06:11,964 | INFO | [DOC 4] type=unknown título=Saga Corrida Mortal | Carros, SAFADEZA e alguma História kkk | PT.1source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 11:06:11,964 | INFO | Quanto tempo mais acha que ele vai ficar calado? >> Ele é firme e tem sido leal, então eu quero ele morto. >> Tem um certo momento, inclusive que o Chamben dá um show de atuação. >> Ah, é verdade. >> 
+2026-05-15 11:06:11,964 | INFO | [DOC 5] type=unknown título=O Iceberg das Curiosidades de Ordem Paranormalsource=https://www.youtube.com/watch?v=JsD1ewgzLJc&t=1293s
+2026-05-15 11:06:11,965 | INFO | porque a condição de morrendo não existia na época no RPG. E quando o Thigo morreu, ele só morreu de uma vez. O Dante é mais impressionante ainda, porque o Dante literalmente nunca zerou a vida. Nunca
+2026-05-15 11:06:11,965 | INFO | ==================================================
+2026-05-15 11:06:11,965 | INFO | retrieve_docs took 2.38s
+2026-05-15 11:06:12,348 | INFO | Response length: 207
+2026-05-15 11:06:12,349 | INFO | generate_answer took 0.38s
+2026-05-15 11:06:54,268 | INFO | Retrieved 5 docs
+2026-05-15 11:06:54,268 | INFO | ==================================================
+2026-05-15 11:06:54,268 | INFO | QUERY: de quando é o filme?
+2026-05-15 11:06:54,268 | INFO | [DOC 1] type=unknown título=Saga Corrida Mortal | Carros, SAFADEZA e alguma História kkk | PT.1source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 11:06:54,269 | INFO | conhecimentos. O coach ele é o treinador. Cara, esse filme aqui ele tem um negócio muito brabo, que é uns diálogos muito positivos. Então quando o Jensen entra na cadeia e conhece os mecânicos, o list
+2026-05-15 11:06:54,269 | INFO | [DOC 2] type=unknown título="Super Mario Bros. (1993)", o ERRO em LIVEACTION antes do SUCESSO em Animação | Filmes LIXO #053source=https://www.youtube.com/watch?v=E4LfchUjB0k
+2026-05-15 11:06:54,269 | INFO | entendeu? Tu olha o filme, tu fala: "Cara, como é que isso aconteceu? Como que alguém chegou nessa ideia?" Eu me pergunto às vezes, é como alguém chegou nessa ideia? Que isso aqui é uma coisa de maluc
+2026-05-15 11:06:54,269 | INFO | [DOC 3] type=unknown título=Saga Corrida Mortal | Carros, SAFADEZA e alguma História kkk | PT.1source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 11:06:54,269 | INFO | a máscara do cabra e continuar, porque é o seguinte, tá? Quando um detento vence cinco campeonatos seguidos, ele recebe o direito de vazar da prisão, entendeu? Ele consegue ser libertado. >> Se ganhar
+2026-05-15 11:06:54,269 | INFO | [DOC 4] type=unknown título=Saga Corrida Mortal | Carros, SAFADEZA e alguma História kkk | PT.1source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 11:06:54,269 | INFO | como é que eu vou preencher 1 hora:30 de filme?" Só que esse filme tem uma 40. >> Então ele realmente gostou muito da câmera lenta. >> Quer dizer, a versão que eu vi tem 1 hora 40, porque uma caracter
+2026-05-15 11:06:54,269 | INFO | [DOC 5] type=unknown título=Saga Corrida Mortal | Carros, SAFADEZA e alguma História kkk | PT.1source=https://www.youtube.com/watch?v=JtVJZfHssLE&t=97s
+2026-05-15 11:06:54,269 | INFO | Walla, do Dani Trerro, toda essa galera recebeu um pouquinho a mais que deveria, inclusive o careca da Brazers, né? >> 50.000 cada um. Inclusive, né? A cena não pode abrir muito porque quando abre voc
+2026-05-15 11:06:54,269 | INFO | ==================================================
+2026-05-15 11:06:54,269 | INFO | retrieve_docs took 2.89s
+2026-05-15 11:06:54,831 | INFO | Response length: 166
+2026-05-15 11:06:54,831 | INFO | generate_answer took 0.56s

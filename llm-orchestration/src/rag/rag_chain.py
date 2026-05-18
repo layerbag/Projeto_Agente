@@ -1,7 +1,6 @@
 from typing import TypedDict, List
-from rank_bm25 import BM25Okapi
+from rank_bm25 import BM25Okapi # type: ignore
 from langchain_classic.retrievers.document_compressors import LLMChainExtractor
-from langchain_classic.retrievers import ContextualCompressionRetriever
 from sentence_transformers import CrossEncoder
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -11,6 +10,13 @@ from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from src.rag.vector_store import carregar_vector_store
+from src.mlops.metrics import measure_time
+from src.mlops.observability import (
+    observe_query,
+    observe_docs,
+    observe_response
+)
+import time
 
 load_dotenv()
 
@@ -64,7 +70,9 @@ def inicializar_bm25():
 
     return _bm25, _bm25_docs
 
+@measure_time("retrieve_docs")
 def retrieve_docs(state: RAGState) -> dict:
+    
     query = state["query"]
     filtro = state.get("filter")
 
@@ -88,6 +96,7 @@ def retrieve_docs(state: RAGState) -> dict:
             fetch_k=20
         )
 
+    
     # =====================================================
     # 2. BM25 SEARCH
     # =====================================================
@@ -113,6 +122,8 @@ def retrieve_docs(state: RAGState) -> dict:
         doc.page_content: doc
         for doc in combined_docs
     }.values())
+
+    
 
     # =====================================================
     # 4. RE-RANKING
@@ -141,6 +152,7 @@ def retrieve_docs(state: RAGState) -> dict:
         for doc, score in ranked[:5]
     ]
 
+    
     # =====================================================
     # 5. CONTEXT COMPRESSION
     # =====================================================
@@ -158,12 +170,16 @@ def retrieve_docs(state: RAGState) -> dict:
     if not compressed_docs:
         compressed_docs = reranked_docs
 
+    
     context = formatar_docs(compressed_docs)
+
+    observe_docs(query, reranked_docs)
 
     return {
         "context": context
     }
 
+@measure_time("generate_answer")
 def generate_answer(state: RAGState):
     prompt = ChatPromptTemplate.from_messages([
         ("system",
@@ -183,6 +199,8 @@ def generate_answer(state: RAGState):
         "query": state["query"],
         "messages": state.get("messages",[])
     })
+
+    observe_response(response)
 
     return {
         "response": response,

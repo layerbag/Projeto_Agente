@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from src.rag.rag_chain import app
 from src.rag.vector_store import carregar_vector_store
 from src.rag.ingestao import extrair_informacoes, extrair_transcricao, dividir_em_chunks, load_pdf, yt2doc
-from src.mlops.observability import rag_com_rastreamento
 
 load_dotenv()
 
@@ -56,7 +55,7 @@ def indexar_se_necessario(pdf_docs: list[dict[str, str]], yt_docs: list[dict[str
         if len(resultados["ids"]) == 0:
             video_id, title = extrair_informacoes(doc["caminho"])
             texto = extrair_transcricao(video_id)
-            metadata = {"video_id": video_id, "title": title, "source": doc["caminho"]}
+            metadata = {"video_id": video_id, "title": title, "source": doc["caminho"], "type": "youtube"}
             yt_loaded.extend(yt2doc(texto, metadata))
         else:
             print("Documento de vídeo já indexado:", doc["caminho"])
