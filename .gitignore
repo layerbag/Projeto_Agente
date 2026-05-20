@@ -1,6 +1,34 @@
+# Environment files
 .env
-data/chroma_db/
+.env.*
+!.env.example
+
+# Python
 __pycache__/
-.env.local
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local application data
+data/chroma_db/
 checkpoints.sqlite
-rag.log
+checkpoints.sqlite-*
+*.log
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

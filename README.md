@@ -1,364 +1,224 @@
-# LLM Orchestration — Hybrid RAG System
+# LLM Orchestration
 
-## Overview
+Projeto experimental de orquestração de LLMs com RAG híbrido, memória conversacional e interface via CLI, API FastAPI e página web estática.
 
-This project is a modular Retrieval-Augmented Generation (RAG) system built with Python, LangChain, and LangGraph.
+O objetivo do projeto é permitir que o usuário indexe documentos PDF e transcrições de vídeos do YouTube em um banco vetorial local, faça perguntas sobre esse conteúdo e receba respostas fundamentadas no contexto recuperado.
 
-The application allows users to:
+## O que o projeto faz
 
-* Index PDF documents
-* Index YouTube video transcripts
-* Store embeddings in ChromaDB locally
-* Perform hybrid retrieval (semantic + BM25)
-* Re-rank results using CrossEncoder
-* Compress retrieved context with LLM-based extraction
-* Maintain conversational memory using LangGraph
-* Interact with the system through a CLI interface
+- Indexa PDFs enviados por caminho local ou upload pela API.
+- Indexa vídeos do YouTube a partir da transcrição.
+- Persiste embeddings localmente com ChromaDB.
+- Combina busca semântica, BM25 e re-ranking com CrossEncoder.
+- Comprime o contexto recuperado antes de enviar ao modelo.
+- Mantém histórico de conversa com LangGraph e SQLite.
+- Expõe uma CLI, uma API HTTP e uma interface web simples.
 
-The architecture was designed to explore modern LLM orchestration patterns, hybrid retrieval strategies, observability, and modular AI engineering practices.
+## Como funciona
 
----
-
-# Architecture
+O fluxo principal fica em `src/rag/rag_chain.py` e é orquestrado com LangGraph.
 
 ```text
-                ┌────────────────────┐
-                │   User Question    │
-                └─────────┬──────────┘
-                          │
-                          ▼
-                ┌────────────────────┐
-                │    LangGraph App   │
-                └─────────┬──────────┘
-                          │
-          ┌───────────────┴────────────────┐
-          ▼                                ▼
- ┌──────────────────┐          ┌────────────────────┐
- │ Semantic Search  │          │    BM25 Search     │
- │   (ChromaDB)     │          │  (Keyword Search)  │
- └────────┬─────────┘          └─────────┬──────────┘
-          └──────────────┬───────────────┘
-                         ▼
-               ┌───────────────────┐
-               │ Hybrid Merge      │
-               └─────────┬─────────┘
-                         ▼
-               ┌───────────────────┐
-               │ CrossEncoder      │
-               │ Re-ranking        │
-               └─────────┬─────────┘
-                         ▼
-               ┌───────────────────┐
-               │ Context Compression│
-               └─────────┬─────────┘
-                         ▼
-               ┌───────────────────┐
-               │ LLM Answer        │
-               └───────────────────┘
+Pergunta do usuário
+        |
+        v
+Contextualização da pergunta com histórico
+        |
+        v
+Busca semântica no ChromaDB + busca lexical BM25
+        |
+        v
+Mesclagem e remoção de duplicados
+        |
+        v
+Re-ranking com CrossEncoder
+        |
+        v
+Compressão de contexto com LLMChainExtractor
+        |
+        v
+Resposta final usando Groq com fallback para Gemini
 ```
 
----
+Durante a ingestão, os documentos são carregados, divididos em chunks e gravados no ChromaDB. O caminho padrão do banco vetorial é `./data/chroma_db`, configurável por variável de ambiente.
 
-# Features
+## Stack
 
-## Retrieval-Augmented Generation (RAG)
+- Python 3.12+
+- Poetry
+- LangChain
+- LangGraph
+- FastAPI
+- ChromaDB
+- HuggingFace Embeddings
+- Sentence Transformers
+- CrossEncoder
+- rank-bm25
+- Groq API
+- Google Gemini API
+- YouTube Transcript API
+- yt-dlp
+- pypdf
 
-* Hybrid retrieval pipeline
-* Semantic vector search with ChromaDB
-* BM25 keyword retrieval
-* CrossEncoder reranking
-* Context compression
-* Conversational memory
-* Multi-document support
-* YouTube transcript ingestion
-
-## LLM Orchestration
-
-* LangGraph workflow orchestration
-* LangChain prompt pipelines
-* Stateful conversation handling
-* Modular chain structure
-
-## MLOps & Observability
-
-The project includes an `mlops` module containing:
-
-* Metrics
-* Logging
-* Tracing
-* Observability utilities
-* Evaluation helpers
-
----
-
-# Tech Stack
-
-## Core AI Stack
-
-* Python 3.12+
-* LangChain
-* LangGraph
-* ChromaDB
-* Sentence Transformers
-* HuggingFace Embeddings
-* Groq API
-* CrossEncoder reranking
-
-## Additional Libraries
-
-* Streamlit
-* DuckDuckGo Search
-* YouTube Transcript API
-* yt-dlp
-* rank-bm25
-* pypdf
-* docx2txt
-
----
-
-# Project Structure
+## Estrutura do projeto
 
 ```text
 llm-orchestration/
-│
-├── data/                     # Persistent data and vector store
-├── notebooks/                # Experiments and notebooks
-├── tests/                    # Tests
+├── api/
+│   ├── main.py              # API FastAPI e rotas da interface web
+│   └── schemas.py           # Schemas Pydantic
+├── data/
+│   └── chroma_db/           # Banco vetorial local do ChromaDB
 ├── src/
-│   ├── chains/               # LangChain examples and orchestration
-│   ├── rag/                  # Main RAG pipeline
-│   ├── mlops/                # Observability and metrics
-│   └── utils/                # Utility helpers
-│
-├── pyproject.toml
-├── poetry.lock
-├── .env.example
+│   ├── chains/              # Exemplos de chains e agentes
+│   ├── mlops/               # Logging, tracing, métricas e observabilidade
+│   ├── rag/                 # Ingestão, vector store e cadeia RAG principal
+│   └── utils/               # Utilitários de arquivos e documentos
+├── tests/                   # Estrutura de testes
+├── web/
+│   └── index.html           # Interface web estática
+├── .env.example             # Exemplo de variáveis de ambiente
+├── pyproject.toml           # Dependências e configuração Poetry
+├── poetry.lock              # Lockfile das dependências
 └── README.md
 ```
 
----
+## Instalação a partir do repositório
 
-# Retrieval Pipeline
-
-## 1. Document Ingestion
-
-Supported sources:
-
-* PDF files
-* YouTube videos
-
-The ingestion pipeline:
-
-1. Extracts content
-2. Splits content into chunks
-3. Generates embeddings
-4. Stores vectors in ChromaDB
-
----
-
-## 2. Hybrid Search
-
-The retrieval process combines:
-
-### Semantic Retrieval
-
-Uses:
-
-* `sentence-transformers/all-mpnet-base-v2`
-* Chroma vector database
-* Max Marginal Relevance (MMR)
-
-### Keyword Retrieval
-
-Uses:
-
-* BM25 ranking
-* Token-based retrieval
-
-Both retrieval strategies are merged to improve recall quality.
-
----
-
-## 3. Re-ranking
-
-Results are re-ranked using:
-
-```text
-cross-encoder/ms-marco-MiniLM-L-6-v2
-```
-
-This improves relevance before sending context to the LLM.
-
----
-
-## 4. Context Compression
-
-The system uses:
-
-```python
-LLMChainExtractor
-```
-
-To reduce unnecessary context and improve token efficiency.
-
----
-
-## 5. Answer Generation
-
-The current implementation uses:
-
-```text
-llama-3.1-8b-instant
-```
-
-through the Groq API.
-
-The answer generation is orchestrated using LangGraph state machines.
-
----
-
-# Installation
-
-## Clone the Repository
+Clone o repositório:
 
 ```bash
-git clone <repository-url>
+git clone <url-do-repositorio>
 cd llm-orchestration
 ```
 
----
-
-## Install Dependencies
-
-Using Poetry:
+Instale as dependências com Poetry:
 
 ```bash
 poetry install
 ```
 
-Or with pip:
+Crie o arquivo `.env` a partir do exemplo:
 
 ```bash
-pip install -r requirements.txt
+cp .env.example .env
 ```
 
----
-
-# Environment Variables
-
-Create a `.env` file based on `.env.example`.
-
-Example:
+Edite o `.env` com as suas chaves:
 
 ```env
-GROQ_API_KEY=your_api_key
+GROQ_API_KEY=your_groq_key_here
+GOOGLE_API_KEY=your_google_key_here
+LANGCHAIN_API_KEY=your_langsmith_key_here
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_PROJECT=llm-orchestration
 CHROMA_PERSIST_DIR=./data/chroma_db
+EMBEDDING_MODEL=all-MiniLM-L6-v2
 ```
 
----
+As chaves `GROQ_API_KEY` e `GOOGLE_API_KEY` são usadas pelos modelos de resposta e fallback. As variáveis do LangChain/LangSmith são opcionais para tracing, mas já estão previstas no projeto.
 
-# Running the Application
+## Executando pela CLI
 
-## Start the CLI
+Inicie a aplicação no terminal:
 
 ```bash
-python -m src.rag.main
+poetry run python -m src.rag.main
 ```
 
----
-
-# Usage
-
-## Index Documents
-
-When the application starts:
+Ao abrir, escolha uma operação:
 
 ```text
-Digite "I" para inserir novos documento ou "C" para iniciar o chat
+Digite "I" para inserir novos documento ou "C" para iniciar o chat:
 ```
 
-Examples:
+Para indexar documentos, use:
 
 ```text
-pdf /path/to/document.pdf
-video https://www.youtube.com/watch?v=example
-```
-
-Then type:
-
-```text
+pdf /caminho/para/arquivo.pdf
+video https://www.youtube.com/watch?v=ID_DO_VIDEO
 fim
 ```
 
----
+Depois, escolha `C` e faça perguntas sobre o conteúdo indexado. Para encerrar o chat, digite `sair`.
 
-## Start Chat
+## Executando a API e a interface web
 
-Select:
+Suba a API FastAPI:
 
-```text
-C
+```bash
+poetry run uvicorn api.main:app --reload
 ```
 
-Then ask questions about indexed content.
+Com a API rodando, acesse:
 
----
+- Health check: `http://127.0.0.1:8000/`
+- Interface web: `http://127.0.0.1:8000/ui`
+- Documentação Swagger: `http://127.0.0.1:8000/docs`
 
-# Example Workflow
+Rotas principais:
 
 ```text
-1. Index PDFs and YouTube videos
-2. Generate embeddings
-3. Store chunks in ChromaDB
-4. Ask questions
-5. Retrieve relevant chunks
-6. Re-rank results
-7. Compress context
-8. Generate grounded answers
+GET    /                     # verifica se a API está rodando
+GET    /ui                   # abre a interface web
+POST   /chat                 # envia mensagem para o agente
+POST   /indexDoc             # indexa PDF ou YouTube
+GET    /documents            # lista documentos indexados
+GET    /sessions_db          # lista sessões persistidas
+GET    /sessions/{session_id} # recupera histórico de uma sessão
+DELETE /sessions/{session_id} # remove uma sessão
 ```
 
----
+Exemplo de chamada para o chat:
 
-# Current Capabilities
+```bash
+curl -X POST http://127.0.0.1:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "O que os documentos dizem sobre o tema principal?"}'
+```
 
-* Hybrid RAG
-* Persistent vector database
-* Conversational memory
-* Document deduplication
-* YouTube transcript ingestion
-* CrossEncoder reranking
-* Context compression
-* Modular architecture
-* Observability utilities
+Exemplo para indexar um PDF pela API:
 
----
+```bash
+curl -X POST http://127.0.0.1:8000/indexDoc \
+  -F "type=pdf" \
+  -F "file=@/caminho/para/arquivo.pdf"
+```
 
-# Future Improvements
+Exemplo para indexar um vídeo do YouTube:
 
-Potential next steps:
+```bash
+curl -X POST http://127.0.0.1:8000/indexDoc \
+  -F "type=YouTube" \
+  -F "url=https://www.youtube.com/watch?v=ID_DO_VIDEO"
+```
 
-* Web UI with Streamlit
-* API layer with FastAPI
-* Multi-agent orchestration
-* Metadata filtering UI
-* Evaluation dashboards
-* Redis cache layer
-* GPU acceleration
-* Distributed vector storage
-* Airflow orchestration
-* CI/CD pipelines
-* Docker support
-* Kubernetes deployment
+## Persistência local
 
----
+O projeto grava dados locais em:
 
-# Author
+- `data/chroma_db/`: coleção do ChromaDB com os chunks e embeddings.
+- `checkpoints.sqlite`: checkpoints do LangGraph usados para memória das conversas.
+- `rag.log`: logs da aplicação RAG.
 
-Developed as an experimental AI orchestration and hybrid RAG project focused on modern LLM engineering patterns.
+Esses arquivos permitem continuar usando documentos e históricos já indexados entre execuções.
 
----
+## Módulos importantes
 
-# License
+- `src/rag/ingestao.py`: extrai informações de PDFs e YouTube, cria documentos e chunks.
+- `src/rag/vector_store.py`: configura embeddings e acesso ao ChromaDB.
+- `src/rag/rag_chain.py`: define o grafo RAG, recuperação, re-ranking, compressão e resposta.
+- `src/rag/main.py`: interface CLI para indexação e chat.
+- `api/main.py`: API FastAPI, sessão de chat, indexação, listagem de documentos e UI.
+- `src/mlops/`: utilitários de métricas, logging, tracing, avaliação e observabilidade.
 
-* MIT
+## Observações de uso
 
+- Na primeira execução, os modelos de embedding e re-ranking podem ser baixados automaticamente.
+- A indexação de YouTube depende da disponibilidade de transcrição no vídeo.
+- O RAG responde com base no contexto recuperado dos documentos indexados.
+- O modelo principal configurado no código é `llama-3.1-8b-instant` via Groq, com fallback para `gemini-2.5-flash`.
+
+## Licença
+
+MIT

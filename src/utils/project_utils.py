@@ -31,7 +31,7 @@ def normalizar_caminho(caminho: str) -> str:
     return caminho
 
 
-def load_pdf(file_path: str):
+def load_pdf(file_path: str, Title: str):
     """Carrega um PDF e retorna seu conteúdo como Document"""
     loader = PyPDFLoader(file_path)
     documents = loader.load()
@@ -41,9 +41,9 @@ def load_pdf(file_path: str):
         print("tamanho: ", len(doc.page_content))
         print(repr(doc.page_content[:100]))
         doc.metadata["type"] = "pdf"
-        doc.metadata["title"] = file_path.split("/")[-1]  # type: ignore
+        doc.metadata["title"] = Title  # type: ignore
         doc.page_content = f"""
-        Título: {file_path.split('/')[-1]}
+        Título: {Title}
 
         Conteúdo:
         {doc.page_content}

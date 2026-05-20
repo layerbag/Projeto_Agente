@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from api.schemas import ChatRequest, ChatResponse
+from api.schemas import ChatRequest, ChatResponse, DeleteDocumentRequest
 from src.rag.rag_chain import responder
 from src.rag.ingestao import dividir_em_chunks, extrair_informacoes, extrair_transcricao
 from src.utils.project_utils import load_pdf, yt2doc, normalizar_caminho, delete_indexed_document
@@ -260,7 +260,7 @@ async def index_docs(
             temp_path = tmp.name
 
         try:
-            doc = load_pdf(temp_path)
+            doc = load_pdf(temp_path,source.split('/')[-1])
             for page in doc:
                 page.metadata["source"] = source
         finally:
@@ -331,6 +331,16 @@ def list_documents():
         documents[source]["count"] += 1
 
     return {"documents": list(documents.values())}
+
+
+@app.delete("/documents")
+def delete_document(request: DeleteDocumentRequest):
+    result = delete_indexed_document(request.source)
+
+    if not result["deleted"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+
+    return result
 
 
 @app.get("/sessions_db")
