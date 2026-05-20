@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Projeto Agente</title>
+  <style>
+    /* Estilos base da página e do container principal. */
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b0d10;
+      color: #edf0f5;
+    }
+
+    .app {
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 24px;
+    }
+
+    /* Cabeçalho com título, sessão atual e botão de nova conversa. */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 16px 12px;
+      border-bottom: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .session {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #8993a3;
+      word-break: break-all;
+    }
+
+    /* Área das mensagens e balões do chat. */
+    .messages {
+      flex: 1;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: row;
+      gap: 12px;
+    }
+
+    .message {
+      max-width: 78%;
+      padding: 12px 14px;
+      border-radius: 8px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .user {
+      align-self: flex-end;
+      background:#c8ced8;
+      color: #111827;
+    }
+
+    .assistant {
+      align-self: flex-start;
+      background: #181b22;
+      border: 0;
+      color: #9ca6b6;
+    }
+
+    /* Formulário usado para enviar mensagens ao agente. */
+    form {
+      display: flex;
+      gap: 8px;
+      padding: 16px;
+      border-top: 0;
+      background: #11141a;
+    }
+
+    #pdfFileInput::file-selector-button {
+      border: 0;
+      border-radius: 8px;
+      background: #e5e7eb;
+      color: #111827;
+      padding: 10px 14px;
+      margin-right: 12px;
+      cursor: pointer;
+    }
+
+    #pdfFileInput::file-selector-button:hover {
+      background: #f8fafc;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px;
+      font-size: 15px;
+      border: 0;
+      border-radius: 8px;
+      background: #1a1e26;
+      color: #edf0f5;
+    }
+
+    input::placeholder {
+      color: #7f8998;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 8px;
+      background: #1a1e26;
+      color: #edf0f5;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    button:hover:not(:disabled) {
+      background:#7f8998;
+      color:#2a303b;
+    }
+
+    .actions {
+      padding-top: 10px;
+    }
+
+    .secondary {
+      background: #1a1e26;
+      color: #edf0f5;
+      border: 0;
+      padding: 8px 12px;
+    }
+
+    .secondary:hover {
+      background: #2a303b;
+    }
+
+    /* Painel da aba de indexação e gerenciamento de documentos. */
+    .panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 20px;
+      padding: 20px;
+      background: #0b0d10;
+      border-bottom: 0;
+    }
+
+    .panel-card {
+      border: 0;
+      border-radius: 16px;
+      background: #12151b;
+      padding: 22px;
+      display: grid;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    @media (max-width: 780px) {
+      .panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Abas que alternam entre chat e documentos. */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #0b0d10;
+      border-bottom: 0;
+      align-items: center;
+    }
+
+    .tab {
+      padding: 12px 18px;
+      border-radius: 10px;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      color: #9ca6b6;
+      transition: all 0.2s ease;
+    }
+
+    .tab:hover {
+      background: #1a1e26;
+      color: #edf0f5;
+    }
+
+    .tab.active {
+      background: #e5e7eb;
+      color: #111827;
+      border-color: transparent;
+    }
+
+    /* Layout do chat: sessões à esquerda e conversa à direita. */
+    .chat-section {
+      display: grid;
+      grid-template-columns: minmax(320px, 360px) 1fr;
+      gap: 20px;
+      padding: 24px 16px 16px;
+      align-items: start;
+      background: #0b0d10;
+      border-bottom: 0;
+    }
+
+    .chat-main {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #11141a;
+      border: 0;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 400px;
+      overflow-y: auto;
+      background: #0f1217;
+    }
+
+    form {
+      display: flex;
+      gap: 8px;
+      padding: 16px;
+      border-top: 0;
+      background: #11141a;
+    }
+
+    /* Lista lateral de sessões salvas no backend. */
+    .sessions-list {
+      background: #11141a;
+      border: 0;
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 78vh;
+      min-width: 300px;
+      overflow: auto;
+    }
+
+    .sessions-list li {
+      padding: 12px 14px;
+      border-radius: 12px;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .sessions-list li:hover {
+      background: #1d222b;
+      transform: translateX(1px);
+    }
+
+    /* Ajustes para telas médias e pequenas. */
+    @media (max-width: 900px) {
+      .app {
+        padding: 0 12px;
+      }
+
+      .tab {
+        flex: 1;
+        text-align: center;
+      }
+
+      .chat-section {
+        grid-template-columns: 1fr;
+      }
+
+      .sessions-list {
+        max-height: none;
+        width: 100%;
+      }
+
+      .panel,
+      .chat-section,
+      .panel-card,
+      .messages,
+      form {
+        padding: 12px;
+      }
+
+      .messages {
+        padding: 16px 0 0;
+      }
+    }
+
+    /* Ajustes extras para celulares. */
+    @media (max-width: 640px) {
+      .app {
+        max-width: 100%;
+      }
+
+      .panel {
+        grid-template-columns: 1fr;
+      }
+
+      .chat-section {
+        padding: 12px 0 0;
+      }
+
+      header,
+      .tabs,
+      .panel,
+      .chat-section,
+      form {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .sessions-list ul {
+        gap: 4px;
+      }
+
+      .sessions-list li {
+        padding: 10px;
+        font-size: 14px;
+      }
+
+      button,
+      input,
+      select {
+        font-size: 14px;
+      }
+    }
+
+    /* Estados visuais dos itens da lista de sessões. */
+    .sessions-list ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sessions-list li {
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #9ca6b6;
+      background: #1a1e26;
+      border: 0;
+    }
+
+    .sessions-list li.selected {
+      background: #e5e7eb;
+      color: #111827;
+      border-color: transparent;
+    }
+
+    /* Cartões, campos e mensagens auxiliares da aba de documentos. */
+    .panel-card {
+      border: 0;
+      border-radius: 12px;
+      background: #11141a;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      border: 0;
+      border-radius: 8px;
+      background: #1a1e26;
+      color: #edf0f5;
+    }
+
+    .panel-card small {
+      color: #8993a3;
+      display: block;
+      margin-top: -4px;
+    }
+
+    .panel-card h2 {
+      margin: 0;
+      font-size: 16px;
+      color: #edf0f5;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+    }
+
+    .field-group[hidden] {
+      display: none;
+    }
+
+    .field-group label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #c8ced8;
+    }
+
+    .helper-text {
+      min-height: 18px;
+      font-size: 13px;
+      color: #9ca6b6;
+    }
+
+    .helper-text.error {
+      color: #f87171;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <!-- Cabeçalho global da aplicação. -->
+    <header>
+      <h1>Projeto Agente</h1>
+      <div class="session" id="session"></div>
+      <div class="actions">
+        <button class="secondary" id="newSession" type="button">Nova conversa</button>
+      </div>
+    </header>
+
+    <!-- Abas principais da interface. -->
+    <div class="tabs">
+      <button class="tab active" id="tabChat">Chat</button>
+      <button class="tab" id="tabDocs">Indexar / Documentos</button>
+    </div>
+
+    <!-- Área de conversa com histórico de sessões e mensagens. -->
+    <section id="chatSection" class="chat-section">
+      <aside class="sessions-list">
+        <h3 style="margin:0;">Sessões</h3>
+        <ul id="sessionsList"><li>Carregando...</li></ul>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+          <button id="refreshSessionsButton" class="secondary">Atualizar sessões</button>
+          <button id="newSessionFromList" class="secondary">Nova sessão</button>
+          <button id="deleteSessionButton" class="secondary">Excluir sessão</button>
+        </div>
+      </aside>
+
+      <main class="chat-main">
+        <section class="messages" id="messages"></section>
+
+        <form id="chatForm">
+          <input id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off" />
+          <button id="sendButton" type="submit">Enviar</button>
+        </form>
+      </main>
+    </section>
+
+    <!-- Área para indexar novos documentos ou remover documentos existentes. -->
+    <section id="docsSection" class="panel" style="display:none;">
+      <div class="panel-card">
+        <h2>Indexar documento</h2>
+        <div class="field-group">
+          <label><input type="radio" name="indexType" value="pdf" checked /> PDF</label>
+          <label><input type="radio" name="indexType" value="url" /> URL</label>
+        </div>
+        <div class="field-group" id="pdfInputWrapper">
+          <label for="pdfFileInput">Selecione um arquivo PDF</label>
+          <input id="pdfFileInput" type="file" accept="application/pdf" />
+        </div>
+        <div class="field-group" id="urlInputWrapper" hidden>
+          <label for="indexUrlInput">Cole a URL do YouTube</label>
+          <input id="indexUrlInput" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+        </div>
+        <button id="indexDocButton" type="button">Indexar documento</button>
+        <div class="helper-text" id="indexStatus"></div>
+      </div>
+      <div class="panel-card">
+        <h2>Excluir documento</h2>
+        <div class="field-group">
+          <label for="deleteSourceSelect">Documento indexado</label>
+          <select id="deleteSourceSelect">
+            <option value="">Carregando documentos...</option>
+          </select>
+          <small>Escolha um documento salvo para remover.</small>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <button id="deleteDocumentButton" type="button">Excluir documento</button>
+          <button id="refreshDocsButton" type="button">Atualizar lista</button>
+        </div>
+        <div class="helper-text" id="deleteStatus"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Elementos principais do chat.
+    const messagesEl = document.getElementById("messages");
+    const form = document.getElementById("chatForm");
+    const input = document.getElementById("messageInput");
+    const sendButton = document.getElementById("sendButton");
+    const sessionEl = document.getElementById("session");
+    const newSessionButton = document.getElementById("newSession");
+
+    let sessionId = localStorage.getItem("agent_session_id");
+    let messages = JSON.parse(localStorage.getItem("agent_messages") || "[]");
+
+    // Guarda a sessão e as mensagens no navegador.
+    function saveState() {
+      if (sessionId) {
+        localStorage.setItem("agent_session_id", sessionId);
+      }
+
+      localStorage.setItem("agent_messages", JSON.stringify(messages));
+    }
+
+    // Renderiza o id da sessão e os balões de mensagem na tela.
+    function render() {
+      sessionEl.textContent = sessionId
+        ? `Sessão: ${sessionId}`
+        : "Sessão ainda não iniciada";
+
+      messagesEl.innerHTML = "";
+
+      for (const message of messages) {
+        const item = document.createElement("div");
+        item.className = `message ${message.role}`;
+        item.textContent = message.content;
+        messagesEl.appendChild(item);
+      }
+
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // Envia a mensagem para a API e adiciona a resposta do agente ao histórico.
+    async function sendMessage(content) {
+      messages.push({ role: "user", content });
+      saveState();
+      render();
+
+      sendButton.disabled = true;
+      input.disabled = true;
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: content,
+            session_id: sessionId,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.detail || "Erro ao chamar a API");
+        }
+
+        const data = await response.json();
+
+        sessionId = data.session_id;
+        messages.push({
+          role: "assistant",
+          content: data.response,
+        });
+
+        saveState();
+        render();
+      } catch (error) {
+        messages.push({
+          role: "assistant",
+          content: `Erro: ${error.message}`,
+        });
+
+        saveState();
+        render();
+      } finally {
+        sendButton.disabled = false;
+        input.disabled = false;
+        input.focus();
+      }
+    }
+
+    // Evita recarregar a página ao enviar o formulário do chat.
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const content = input.value.trim();
+
+      if (!content) {
+        return;
+      }
+
+      input.value = "";
+      await sendMessage(content);
+    });
+
+    // Limpa a sessão local e começa uma nova conversa.
+    newSessionButton.addEventListener("click", () => {
+      sessionId = null;
+      messages = [];
+      localStorage.removeItem("agent_session_id");
+      localStorage.removeItem("agent_messages");
+      render();
+      input.focus();
+    });
+
+    // Elementos dos controles de documentos, sessões e abas.
+    const indexTypeRadios = document.querySelectorAll('input[name="indexType"]');
+    const pdfInputWrapper = document.getElementById("pdfInputWrapper");
+    const urlInputWrapper = document.getElementById("urlInputWrapper");
+    const pdfFileInput = document.getElementById("pdfFileInput");
+    const indexUrlInput = document.getElementById("indexUrlInput");
+    const indexDocButton = document.getElementById("indexDocButton");
+    const indexStatus = document.getElementById("indexStatus");
+    const deleteSourceSelect = document.getElementById("deleteSourceSelect");
+    const deleteDocumentButton = document.getElementById("deleteDocumentButton");
+    const deleteStatus = document.getElementById("deleteStatus");
+    const refreshDocsButton = document.getElementById("refreshDocsButton");
+    const sessionsList = document.getElementById("sessionsList");
+    const refreshSessionsButton = document.getElementById("refreshSessionsButton");
+    const newSessionFromList = document.getElementById("newSessionFromList");
+    const deleteSessionButton = document.getElementById("deleteSessionButton");
+    const tabChat = document.getElementById("tabChat");
+    const tabDocs = document.getElementById("tabDocs");
+    const chatSection = document.getElementById("chatSection");
+    const docsSection = document.getElementById("docsSection");
+    let selectedSessionId = null;
+
+    // Alterna os campos exibidos entre upload de PDF e URL do YouTube.
+    function toggleIndexType() {
+      const selected = document.querySelector('input[name="indexType"]:checked').value;
+      pdfInputWrapper.hidden = selected !== "pdf";
+      urlInputWrapper.hidden = selected !== "url";
+      indexStatus.textContent = "";
+      indexStatus.classList.remove("error");
+    }
+
+    indexTypeRadios.forEach((radio) => radio.addEventListener("change", toggleIndexType));
+    toggleIndexType();
+
+    // Troca a área visível entre chat e documentos.
+    function switchToTab(tab) {
+      if (tab === 'chat') {
+        tabChat.classList.add('active');
+        tabDocs.classList.remove('active');
+        chatSection.style.display = '';
+        docsSection.style.display = 'none';
+      } else {
+        tabChat.classList.remove('active');
+        tabDocs.classList.add('active');
+        chatSection.style.display = 'none';
+        docsSection.style.display = '';
+      }
+    }
+
+    tabChat.addEventListener('click', () => switchToTab('chat'));
+    tabDocs.addEventListener('click', () => switchToTab('docs'));
+
+    // Busca as sessões salvas no backend e monta a lista lateral.
+    async function refreshSessions() {
+      sessionsList.innerHTML = '<li>Carregando...</li>';
+      selectedSessionId = null;
+      try {
+        const res = await fetch('/sessions_db');
+        const data = await res.json();
+        if (!Array.isArray(data.sessions) || data.sessions.length === 0) {
+          sessionsList.innerHTML = '<li>Nenhuma sessão encontrada</li>';
+          return;
+        }
+
+        sessionsList.innerHTML = '';
+        for (const s of data.sessions) {
+          const li = document.createElement('li');
+          const preview = s.preview ? s.preview : s.session_id;
+          li.textContent = preview;
+          li.title = s.session_id;
+          li.dataset.sessionId = s.session_id;
+          li.addEventListener('click', () => {
+            document.querySelectorAll('#sessionsList li').forEach(n => n.classList.remove('selected'));
+            li.classList.add('selected');
+            selectedSessionId = s.session_id;
+            loadSession(s.session_id);
+          });
+          sessionsList.appendChild(li);
+        }
+      } catch (err) {
+        sessionsList.innerHTML = `<li>Erro ao carregar: ${err.message}</li>`;
+      }
+    }
+
+    // Exclui a sessão selecionada e limpa a tela caso ela esteja aberta.
+    async function deleteSession() {
+      if (!selectedSessionId) {
+        alert('Selecione uma sessão primeiro.');
+        return;
+      }
+
+      deleteSessionButton.disabled = true;
+      try {
+        const response = await fetch(`/sessions/${selectedSessionId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.detail || 'Erro ao excluir a sessão.');
+        }
+
+        if (sessionId === selectedSessionId) {
+          sessionId = null;
+          messages = [];
+          localStorage.removeItem('agent_session_id');
+          localStorage.removeItem('agent_messages');
+          render();
+        }
+
+        selectedSessionId = null;
+        await refreshSessions();
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        deleteSessionButton.disabled = false;
+      }
+    }
+
+    // Carrega uma sessão existente para continuar a conversa.
+    async function loadSession(session_id) {
+      // Tenta buscar o histórico completo; se não existir, usa apenas o id da sessão.
+      try {
+        const res = await fetch(`/sessions/${session_id}`);
+        if (res.ok) {
+          const data = await res.json();
+          sessionId = data.session_id;
+          messages = data.history.map(h => ({ role: h.role, content: h.content }));
+          saveState();
+          render();
+          switchToTab('chat');
+          return;
+        }
+      } catch (_) {}
+
+      // Fallback: define a sessão e limpa as mensagens locais.
+      sessionId = session_id;
+      messages = [];
+      saveState();
+      render();
+      switchToTab('chat');
+    }
+
+    // Eventos dos botões de sessão.
+    refreshSessionsButton.addEventListener('click', refreshSessions);
+    newSessionFromList.addEventListener('click', () => {
+      sessionId = null; messages = []; selectedSessionId = null; saveState(); render();
+    });
+    deleteSessionButton.addEventListener('click', deleteSession);
+
+    // Envia PDF ou URL do YouTube para indexação no backend.
+    async function indexDocument() {
+      indexStatus.textContent = "";
+      indexStatus.classList.remove("error");
+      indexDocButton.disabled = true;
+
+      const selected = document.querySelector('input[name="indexType"]:checked').value;
+
+      try {
+        const formData = new FormData();
+        formData.append("type", selected === "pdf" ? "pdf" : "YouTube");
+
+        if (selected === "pdf") {
+          const file = pdfFileInput.files[0];
+          if (!file) {
+            throw new Error("Selecione um arquivo PDF antes de indexar.");
+          }
+          formData.append("file", file);
+        } else {
+          const url = indexUrlInput.value.trim();
+          if (!url) {
+            throw new Error("Cole a URL do YouTube antes de indexar.");
+          }
+          formData.append("url", url);
+        }
+
+        const response = await fetch("/indexDoc", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || data.message || "Erro ao indexar documento.");
+        }
+
+        indexStatus.textContent = data.message || "Documento indexado com sucesso.";
+        if (selected === "pdf") {
+          pdfFileInput.value = "";
+        } else {
+          indexUrlInput.value = "";
+        }
+
+        await refreshDocuments();
+      } catch (error) {
+        indexStatus.textContent = `Erro: ${error.message}`;
+        indexStatus.classList.add("error");
+      } finally {
+        indexDocButton.disabled = false;
+      }
+    }
+
+    // Carrega os documentos indexados para preencher o seletor de exclusão.
+    async function refreshDocuments() {
+      deleteStatus.textContent = "";
+      deleteStatus.classList.remove("error");
+      deleteDocumentButton.disabled = true;
+      deleteSourceSelect.disabled = true;
+      deleteSourceSelect.innerHTML = "<option value=\"\">Carregando documentos...</option>";
+
+      try {
+        const response = await fetch("/documents");
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || data.message || "Erro ao buscar documentos.");
+        }
+
+        if (!Array.isArray(data.documents) || data.documents.length === 0) {
+          deleteSourceSelect.innerHTML = "<option value=\"\">Nenhum documento indexado</option>";
+          return;
+        }
+
+        deleteSourceSelect.innerHTML = data.documents
+          .map((doc) => {
+            const label = `${doc.title} (${doc.type})`;
+            return `<option value="${doc.source}">${label}</option>`;
+          })
+          .join("");
+
+        deleteSourceSelect.disabled = false;
+        deleteDocumentButton.disabled = false;
+      } catch (error) {
+        deleteSourceSelect.innerHTML = `<option value="">Erro ao carregar documentos</option>`;
+        deleteStatus.textContent = `Erro: ${error.message}`;
+        deleteStatus.classList.add("error");
+      }
+    }
+
+    // Remove do vector store o documento selecionado.
+    async function deleteDocument() {
+      deleteStatus.textContent = "";
+      deleteStatus.classList.remove("error");
+      deleteDocumentButton.disabled = true;
+
+      try {
+        const source = deleteSourceSelect.value;
+        if (!source) {
+          throw new Error("Selecione um documento para exclusão.");
+        }
+
+        const response = await fetch("/documents", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ source }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || data.message || "Erro ao excluir documento.");
+        }
+
+        deleteStatus.textContent = data.message || "Documento excluído com sucesso.";
+        await refreshDocuments();
+      } catch (error) {
+        deleteStatus.textContent = `Erro: ${error.message}`;
+        deleteStatus.classList.add("error");
+      } finally {
+        deleteDocumentButton.disabled = false;
+      }
+    }
+
+    indexDocButton.addEventListener("click", indexDocument);
+    deleteDocumentButton.addEventListener("click", deleteDocument);
+    refreshDocsButton.addEventListener("click", refreshDocuments);
+
+    // Estado inicial da tela ao abrir a interface.
+    render();
+    refreshDocuments();
+    refreshSessions();
+  </script>
+</body>
+</html>

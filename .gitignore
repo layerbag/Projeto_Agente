@@ -1,0 +1,6 @@
+.env
+data/chroma_db/
+__pycache__/
+.env.local
+checkpoints.sqlite
+rag.log
