@@ -381,3 +381,24 @@ def sessions_db():
         })
 
     return {"sessions": sessions_list}
+
+@app.get("/logs")
+def logs(lines: int = 200):
+    log_path = "rag.log"
+
+    if not os.path.exists(log_path):
+        raise HTTPException(status_code=404, detail="Arquivo de log não encontrado")
+    
+    try:
+        with open(log_path, "r", encoding="utf-8") as file:
+            log_lines = file.readlines()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao ler logs: {e}")
+    
+    return {
+        "file": log_path,
+        "lines": lines,
+        "content": "".join(log_lines[-lines:]),
+    }
+

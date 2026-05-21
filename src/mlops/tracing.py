@@ -1,9 +1,9 @@
 from src.mlops.logging import logger
 
-def trace_retrieval(query, docs):
+def trace_retrieval(query, rewritten_query, docs):
 
-    logger.info("="*50)
-    logger.info(f"QUERY: {query}")
+    logger.info("\n\n" + "="*50)
+    logger.info(f"QUERY: {query}\nREWRITTEN_QUERY: {rewritten_query}")
 
     for i, doc in enumerate(docs):
 
@@ -33,4 +33,4 @@ def trace_retrieval(query, docs):
 
         logger.info(preview)
 
-    logger.info("=" * 50)
+    logger.info("=" * 50 + "\n")

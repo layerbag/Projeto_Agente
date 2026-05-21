@@ -188,7 +188,7 @@ def retrieve_docs(state: RAGState) -> dict:
     
     context = formatar_docs(compressed_docs)
 
-    observe_docs(query, reranked_docs)
+    observe_docs(state["query"],query, reranked_docs)
 
     return {
         "context": context

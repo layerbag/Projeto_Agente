@@ -447,6 +447,7 @@
     <div class="tabs">
       <button class="tab active" id="tabChat">Chat</button>
       <button class="tab" id="tabDocs">Indexar / Documentos</button>
+      <button class="tab" id="tabLogs">Logs</button>
     </div>
 
     <!-- Área de conversa com histórico de sessões e mensagens. -->
@@ -472,7 +473,7 @@
     </section>
 
     <!-- Área para indexar novos documentos ou remover documentos existentes. -->
-    <section id="docsSection" class="panel" style="display:none;">
+    <section id="docsSection" class="panel" style="display:none">
       <div class="panel-card">
         <h2>Indexar documento</h2>
         <div class="field-group">
@@ -504,6 +505,19 @@
           <button id="refreshDocsButton" type="button">Atualizar lista</button>
         </div>
         <div class="helper-text" id="deleteStatus"></div>
+      </div>
+    </section>
+
+    <section id="logsSection" class="panel" style="display:none">
+      <div class="panel-card">
+        <h2>Logs</h2>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input id="logsLinesInput" type="number" min="1" max="1000" value="200" />
+          <button id="refreshLogsButton" type="button">Atualizar logs</button>
+        </div>
+
+        <div class="helper-text" id="logsStatus"></div>
+        <pre id="logsOutput" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
       </div>
     </section>
   </main>
@@ -640,8 +654,29 @@
     const deleteSessionButton = document.getElementById("deleteSessionButton");
     const tabChat = document.getElementById("tabChat");
     const tabDocs = document.getElementById("tabDocs");
+    const tabLogs = document.getElementById("tabLogs");
     const chatSection = document.getElementById("chatSection");
     const docsSection = document.getElementById("docsSection");
+    const logsSection = document.getElementById("logsSection");
+    const tabs = {
+      chat: {
+        button: tabChat,
+        section: chatSection,
+      },
+      docs: {
+        button: tabDocs,
+        section: docsSection,
+      },
+      logs: {
+        button: tabLogs,
+        section: logsSection,
+      },
+    };
+    const logsLinesInput = document.getElementById("logsLinesInput");
+    const refreshLogsButton = document.getElementById("refreshLogsButton");
+    const logsStatus = document.getElementById("logsStatus");
+    const logsOutput = document.getElementById("logsOutput");
+
     let selectedSessionId = null;
 
     // Alterna os campos exibidos entre upload de PDF e URL do YouTube.
@@ -658,21 +693,22 @@
 
     // Troca a área visível entre chat e documentos.
     function switchToTab(tab) {
-      if (tab === 'chat') {
-        tabChat.classList.add('active');
-        tabDocs.classList.remove('active');
-        chatSection.style.display = '';
-        docsSection.style.display = 'none';
-      } else {
-        tabChat.classList.remove('active');
-        tabDocs.classList.add('active');
-        chatSection.style.display = 'none';
-        docsSection.style.display = '';
-      }
+      Object.entries(tabs).forEach(([name, {button, section}]) => {
+        const isActive = name === tab;
+
+        button.classList.toggle("active", isActive);
+        section.style.display = isActive ? "" : "none";
+      });
     }
 
     tabChat.addEventListener('click', () => switchToTab('chat'));
     tabDocs.addEventListener('click', () => switchToTab('docs'));
+    tabLogs.addEventListener('click', () => {
+      switchToTab('logs');
+      GetLogs();
+    });
+
+    refreshLogsButton.addEventListener("click", GetLogs);
 
     // Busca as sessões salvas no backend e monta a lista lateral.
     async function refreshSessions() {
@@ -896,6 +932,29 @@
       }
     }
 
+    async function GetLogs() {
+      logsStatus.textContent = "Carregando logs...";
+      logsStatus.classList.remove("error");
+      logsOutput.textContent = "";
+
+      const lines = logsLinesInput.value || 200;
+
+      try{
+        const response = await fetch(`/logs?lines=${encodeURIComponent(lines)}`);
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Erro ao buscar logs.");
+        }
+
+        logsOutput.textContent = data.content || "Nenhum log encontrado.";
+        logsStatus.textContent = `${data.lines} linhas carregadas de ${data.file}.`;
+      } catch (error) {
+        logsStatus.textContent = `Erro: ${error.message}`;
+        logsStatus.classList.add("error");
+      }
+    }
     indexDocButton.addEventListener("click", indexDocument);
     deleteDocumentButton.addEventListener("click", deleteDocument);
     refreshDocsButton.addEventListener("click", refreshDocuments);

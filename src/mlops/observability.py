@@ -5,12 +5,12 @@ from src.mlops.evaluation import evaluate_response
 def observe_query(query):
     logger.info(f"Query: {query}")
 
-def observe_docs(query, docs):
+def observe_docs(query, rewritten_query, docs):
     logger.info(
         f"Retrieved {len(docs)} docs"
     )
 
-    trace_retrieval(query, docs)
+    trace_retrieval(query, rewritten_query, docs)
 
 def observe_response(response):
     logger.info(
