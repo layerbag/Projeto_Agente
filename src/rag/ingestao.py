@@ -1,6 +1,7 @@
 import yt_dlp
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from youtube_transcript_api import YouTubeTranscriptApi
+from langchain_core.documents import Document
 from src.utils.project_utils import load_pdf, yt2doc
 
 VIDEO_URL = "https://www.youtube.com/watch?v=JsD1ewgzLJc"
@@ -22,33 +23,45 @@ def extrair_transcricao(video_id: str):
     api = YouTubeTranscriptApi()
     transcript = api.fetch(video_id, languages=['pt', 'en']) # type: ignore
     texto = " ".join([item.text for item in transcript]) # type: ignore
+    
     return texto
 
 # Dividir os documentos em chunks menores para indexação
-def dividir_em_chunks(pdf_docs: list = None, yt_docs: list = None): # type: ignore
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150, separators=["\n\n", " ", ""] )
-    all_docs = []
+def dividir_em_chunks(docs: list[Document] = None): # type: ignore
 
-    if pdf_docs and len(pdf_docs) > 0:
-        all_docs.extend(pdf_docs)
-    if yt_docs and len(yt_docs) > 0:
-        all_docs.extend(yt_docs)
-
-    if not all_docs:
+    if not docs:
         print("Nenhum documento para dividir em chunks.")
         return []
+
+    text_splitter_yt = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150, separators=["\n\n", "\n"," ", ""] )
+    text_splitter_pdf = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=200, separators=["\n\n", "\n"," ", ""] )
+
+    pdf_docs = []
+    yt_docs = []
+
+    if not docs:
+        print("Nenhum documento para dividir em chunks.")
+        return []
+
+    for doc in docs:
+        if doc.metadata["type"] == "YouTube":
+            yt_docs.append(doc)
+        else:
+            pdf_docs.append(doc)
     
     # splitting dos documentos em chunks menores
-    chunks = text_splitter.split_documents(all_docs) # type: ignore
+    chunks = []
+    
+    if pdf_docs:
+        chunks.extend(text_splitter_pdf.split_documents(pdf_docs))
+
+    if yt_docs:
+        chunks.extend(text_splitter_yt.split_documents(yt_docs))
 
     # Filtrar chunks muito pequenos ou que contenham apenas metadados
     chunks = [
         chunk for chunk in chunks
         if len(chunk.page_content.strip()) > 100
-    ]
-    chunks = [
-        chunk for chunk in chunks
-        if "Título:" not in chunk.page_content.strip()
     ]
 
 

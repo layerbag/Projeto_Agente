@@ -34,7 +34,7 @@ gemini = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 llm = groq.with_fallbacks([gemini])
 
 reranker = CrossEncoder(
-    "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    "BAAI/bge-reranker-v2-m3"
 )
 
 
@@ -58,8 +58,13 @@ def inicializar_bm25():
 
     data = vector_store.get()
 
-    textos = data["documents"]
-    metadatas = data["metadatas"]
+    textos = data.get("documents") or []
+    metadatas = data.get("metadatas") or []
+
+    if not textos:
+        _bm25 = None
+        _bm25_docs = []
+        return _bm25, _bm25_docs
 
     docs = []
 
@@ -78,6 +83,105 @@ def inicializar_bm25():
 
     return _bm25, _bm25_docs
 
+def reset_bm25():
+    global _bm25, _bm25_docs
+    
+    _bm25 = None
+    _bm25_docs = None
+
+
+def _serializar_doc(doc, rank: int, score: float | None = None, include_content: bool = False):
+    content = doc.page_content or ""
+    item = {
+        "rank": rank,
+        "score": float(score) if score is not None else None,
+        "metadata": dict(doc.metadata or {}),
+        "preview": " ".join(content.split())[:500],
+    }
+
+    if include_content:
+        item["content"] = content
+
+    return item
+
+
+def retrieval_debug(
+    query: str,
+    semantic_k: int = 10,
+    bm25_k: int = 10,
+    top_k: int = 5,
+    include_content: bool = False,
+) -> dict:
+    vector_store = carregar_vector_store()
+
+    semantic_docs = vector_store.max_marginal_relevance_search(
+        query=query,
+        k=semantic_k,
+        fetch_k=max(semantic_k * 2, semantic_k),
+    )
+
+    bm25, bm25_docs = inicializar_bm25()
+    bm25_results = []
+
+    if bm25 is not None and bm25_docs:
+        tokenized_query = query.lower().split()
+        bm25_results = bm25.get_top_n(
+            tokenized_query,
+            bm25_docs,
+            n=bm25_k,
+        )
+
+    combined_docs = semantic_docs + bm25_results
+    unique_docs = list({
+        doc.page_content: doc
+        for doc in combined_docs
+    }.values())
+
+    if unique_docs:
+        pairs = [
+            (query, doc.page_content)
+            for doc in unique_docs
+        ]
+        scores = reranker.predict(pairs)
+        ranked = sorted(
+            zip(unique_docs, scores),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+    else:
+        ranked = []
+
+    MIN_RERANK_SCORE = -5.0
+
+    reranked_docs = [
+        (doc, score)
+        for doc, score in ranked
+        if score >= MIN_RERANK_SCORE
+    ][:top_k]
+
+    return {
+        "query": query,
+        "counts": {
+            "semantic": len(semantic_docs),
+            "bm25": len(bm25_results),
+            "combined": len(combined_docs),
+            "unique": len(unique_docs),
+            "reranked": len(reranked_docs),
+        },
+        "semantic": [
+            _serializar_doc(doc, rank=i + 1, include_content=include_content)
+            for i, doc in enumerate(semantic_docs)
+        ],
+        "bm25": [
+            _serializar_doc(doc, rank=i + 1, include_content=include_content)
+            for i, doc in enumerate(bm25_results)
+        ],
+        "reranked": [
+            _serializar_doc(doc, rank=i + 1, score=score, include_content=include_content)
+            for i, (doc, score) in enumerate(reranked_docs)
+        ],
+    }
+
 @measure_time("retrieve_docs")
 def retrieve_docs(state: RAGState) -> dict:
     
@@ -90,19 +194,11 @@ def retrieve_docs(state: RAGState) -> dict:
     # 1. VECTOR SEARCH COM MMR
     # =====================================================
 
-    if filtro:
-        semantic_docs = vector_store.max_marginal_relevance_search(
-            query=query,
-            k=10,
-            fetch_k=20,
-            filter=filtro
-        )
-    else:
-        semantic_docs = vector_store.max_marginal_relevance_search(
-            query=query,
-            k=10,
-            fetch_k=20
-        )
+    semantic_docs = vector_store.max_marginal_relevance_search(
+        query=query,
+        k=10,
+        fetch_k=max(20, 10),
+    )
 
     
     # =====================================================
@@ -110,56 +206,51 @@ def retrieve_docs(state: RAGState) -> dict:
     # =====================================================
 
     bm25, bm25_docs = inicializar_bm25()
+    bm25_results = []
 
-    tokenized_query = query.lower().split()
-
-    bm25_results = bm25.get_top_n(
-        tokenized_query,
-        bm25_docs,
-        n=10
-    )
+    if bm25 is not None and bm25_docs:
+        tokenized_query = query.lower().split()
+        bm25_results = bm25.get_top_n(
+            tokenized_query,
+            bm25_docs,
+            n=10,
+        )
 
     # =====================================================
     # 3. MERGE HÍBRIDO
     # =====================================================
 
     combined_docs = semantic_docs + bm25_results
-
-    # remove duplicados
     unique_docs = list({
         doc.page_content: doc
         for doc in combined_docs
     }.values())
 
-    
-
     # =====================================================
     # 4. RE-RANKING
     # =====================================================
 
-    if not unique_docs:
-        return {
-            "context": "Nenhum documento relevante encontrado."
-        }
+    if unique_docs:
+        pairs = [
+            (query, doc.page_content)
+            for doc in unique_docs
+        ]
+        scores = reranker.predict(pairs)
+        ranked = sorted(
+            zip(unique_docs, scores),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+    else:
+        ranked = []
 
-    pairs = [
-        (query, doc.page_content)
-        for doc in unique_docs
-    ]
-
-    scores = reranker.predict(pairs)
-
-    ranked = sorted(
-        zip(unique_docs, scores),
-        key=lambda x: x[1],
-        reverse=True
-    )
+    MIN_RERANK_SCORE = -5.0
 
     reranked_docs = [
         doc
-        for doc, score in ranked[:5]
-    ]
-
+        for doc, score in ranked
+        if score >= MIN_RERANK_SCORE
+    ][:5]
     
     # =====================================================
     # 5. CONTEXT COMPRESSION
@@ -236,6 +327,7 @@ def contextualize_question(state: RAGState):
 
     prompt = f"""
     Data a conversa anterior e a pergunta atual, reescreva a pergunta atual para que ela seja completa e possa ser usada em uma busca vetorial.
+    Traduza a pergunta para INGLÊS, mantendo nomes no idioma original.
 
     Histórico da conversa:
     {history}

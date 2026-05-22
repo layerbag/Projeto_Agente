@@ -7,8 +7,8 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from api.schemas import ChatRequest, ChatResponse, DeleteDocumentRequest
-from src.rag.rag_chain import responder
+from api.schemas import ChatRequest, ChatResponse, DeleteDocumentRequest, RetrievalRequest
+from src.rag.rag_chain import responder, reset_bm25, retrieval_debug
 from src.rag.ingestao import dividir_em_chunks, extrair_informacoes, extrair_transcricao
 from src.utils.project_utils import load_pdf, yt2doc, normalizar_caminho, delete_indexed_document
 from src.rag.vector_store import carregar_vector_store
@@ -270,9 +270,11 @@ async def index_docs(
                 pass
 
         # Divide o documento em chunks e salva no vector store para uso no RAG.
-        chunks = dividir_em_chunks(pdf_docs=doc)
+        chunks = dividir_em_chunks(doc)
         if chunks:
             vector_store.add_documents(chunks)
+            # resetar o bm25 para não ficar desatualizado
+            reset_bm25()
             return {"message": "Documento Indexado"}
         return {"message": "Documento Vazio"}
 
@@ -292,9 +294,11 @@ async def index_docs(
             texto = extrair_transcricao(videoId)
             metadata = {"video_id": videoId, "title": title, "source": url, "type": "YouTube"}
             doc = yt2doc(texto, metadata)
-            chunks = dividir_em_chunks(yt_docs=doc)
+            chunks = dividir_em_chunks(doc)
             if chunks:
                 vector_store.add_documents(chunks)
+                # resetar o bm25 para não ficar desatualizado
+                reset_bm25()
                 return {"message": "Documento Indexado"}
             return {"message": "Documento Vazio"}
         except Exception as e:
@@ -336,11 +340,29 @@ def list_documents():
 @app.delete("/documents")
 def delete_document(request: DeleteDocumentRequest):
     result = delete_indexed_document(request.source)
-
+    # resetar o bm25 para não ficar desatualizado
+    reset_bm25()
     if not result["deleted"]:
         raise HTTPException(status_code=404, detail=result["message"])
 
     return result
+
+
+@app.post("/retrieval/debug")
+def debug_retrieval(request: RetrievalRequest):
+    try:
+        return retrieval_debug(
+            query=request.query,
+            semantic_k=request.semantic_k,
+            bm25_k=request.bm25_k,
+            top_k=request.top_k,
+            include_content=request.include_content,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao executar retrieval: {e}",
+        )
 
 
 @app.get("/sessions_db")
@@ -401,4 +423,3 @@ def logs(lines: int = 200):
         "lines": lines,
         "content": "".join(log_lines[-lines:]),
     }
-

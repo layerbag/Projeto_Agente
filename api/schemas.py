@@ -14,3 +14,10 @@ class IndexDoc(BaseModel):
 
 class DeleteDocumentRequest(BaseModel):
     source: str = Field(..., min_length=1)
+
+class RetrievalRequest(BaseModel):
+    query: str = Field(..., min_length=1)
+    semantic_k: int = Field(default=10, ge=1, le=30)
+    bm25_k: int = Field(default=10, ge=1, le=30)
+    top_k: int = Field(default=5, ge=1, le=20)
+    include_content: bool = False

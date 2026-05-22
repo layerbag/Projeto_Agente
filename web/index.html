@@ -169,6 +169,7 @@
       display: grid;
       gap: 16px;
       min-width: 0;
+      margin: 10px;
     }
 
     @media (max-width: 780px) {
@@ -236,6 +237,7 @@
       flex-direction: column;
       gap: 12px;
       min-height: 400px;
+      max-height: 500px;
       overflow-y: auto;
       background: #0f1217;
     }
@@ -448,6 +450,7 @@
       <button class="tab active" id="tabChat">Chat</button>
       <button class="tab" id="tabDocs">Indexar / Documentos</button>
       <button class="tab" id="tabLogs">Logs</button>
+      <button class="tab" id="tabRetrieval">Retrieval</button>
     </div>
 
     <!-- Área de conversa com histórico de sessões e mensagens. -->
@@ -518,6 +521,64 @@
 
         <div class="helper-text" id="logsStatus"></div>
         <pre id="logsOutput" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+      </div>
+    </section>
+
+    <section id="RetrievalSection" class="panel" style="grid-template-columns: auto; display:none;">
+      <header class="header" style="width: 100%;">
+        <h2 style="text-align: center; width: 100%;">Retrieval Debug</h2>
+      </header>
+      
+      <div class="panel-card">
+        
+        <h3>Parametros</h3>
+        <div class="field-group">
+          <label for="QueryRetrievalInput">Query</label>
+          <input id="QueryRetrievalInput" type="text" placeholder="Digite sua Query aqui" aria-label="Query"/>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px 30px;">
+          <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="field-group">
+              <label for="SemanticRetrievalInput">Número de Documentos recuperados por Semântica</label>
+              <input id="SemanticRetrievalInput" type="number" style="max-width: 50px;" value="10"/>
+            </div>
+            <div class="field-group">
+              <label for="bm25RetrievalInput">Número de Documentos recuperados pelo bm25</label>
+              <input id="bm25RetrievalInput" type="number" style="max-width: 50px;" value="10"/>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; justify-content: flex-start; gap: 20px;">
+            <div class="field-group">
+              <label for="topRetrievalInput">Total Documentos</label>
+              <input id="topRetrievalInput" type="number" style="max-width: 50px;" value="5"/>
+            </div>
+            <div class="field-group" style="display: flex; justify-content: flex-start;">
+              <label for="ContentRetrievalInput" style="cursor: pointer;">Incluir Conteúdo</label>
+              <input id="ContentRetrievalInput" type="checkbox" style="width: 16px; height: 16px; cursor: pointer; accent-color: #3357cc; flex: 0;"/>
+            </div>
+          </div>
+        </div>
+        <button id="RetrievalButton">Executar Retrieval</button>
+      </div>
+
+      <div id="retrievalResponse" style="display: none; margin: 10px;">
+        <div class="panel-card">
+          <h3>Resultados da Busca Semântica</h3>
+          <pre id="OutputSemanticRetrieval" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+        </div>
+        
+
+        <div class="panel-card">
+          <h3>Resultados da Busca Léxica (Bm25)</h3>
+          <pre id="OutputLexicalRetrieval" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+        </div>
+        
+
+        <div class="panel-card">
+          <h3>Rerank</h3>
+          <pre id="OutputRerankRetrieval" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+        </div>
+        
       </div>
     </section>
   </main>
@@ -655,9 +716,11 @@
     const tabChat = document.getElementById("tabChat");
     const tabDocs = document.getElementById("tabDocs");
     const tabLogs = document.getElementById("tabLogs");
+    const tabRetrieval = document.getElementById("tabRetrieval");
     const chatSection = document.getElementById("chatSection");
     const docsSection = document.getElementById("docsSection");
     const logsSection = document.getElementById("logsSection");
+    const retrievalSection = document.getElementById("RetrievalSection");
     const tabs = {
       chat: {
         button: tabChat,
@@ -671,11 +734,25 @@
         button: tabLogs,
         section: logsSection,
       },
+      retrieval: {
+        button: tabRetrieval,
+        section: retrievalSection
+      },
     };
     const logsLinesInput = document.getElementById("logsLinesInput");
     const refreshLogsButton = document.getElementById("refreshLogsButton");
     const logsStatus = document.getElementById("logsStatus");
     const logsOutput = document.getElementById("logsOutput");
+    const QueryRetrievalInput = document.getElementById("QueryRetrievalInput");
+    const SemanticRetrievalInput = document.getElementById("SemanticRetrievalInput");
+    const bm25RetrievalInput = document.getElementById("bm25RetrievalInput");
+    const topRetrievalInput = document.getElementById("topRetrievalInput");
+    const ContentRetrievalInput = document.getElementById("ContentRetrievalInput");
+    const RetrievalButton = document.getElementById("RetrievalButton");
+    const OutputSemanticRetrieval = document.getElementById("OutputSemanticRetrieval");
+    const OutputLexicalRetrieval = document.getElementById("OutputLexicalRetrieval");
+    const OutputRerankRetrieval = document.getElementById("OutputRerankRetrieval");
+    const retrievalResponse = document.getElementById("retrievalResponse");
 
     let selectedSessionId = null;
 
@@ -707,6 +784,7 @@
       switchToTab('logs');
       GetLogs();
     });
+    tabRetrieval.addEventListener('click', () => switchToTab('retrieval'))
 
     refreshLogsButton.addEventListener("click", GetLogs);
 
@@ -958,6 +1036,121 @@
     indexDocButton.addEventListener("click", indexDocument);
     deleteDocumentButton.addEventListener("click", deleteDocument);
     refreshDocsButton.addEventListener("click", refreshDocuments);
+
+
+    // Função auxiliar para renderizar os resultados como cartões
+    function renderRetrievalResults(containerId, results) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = ''; // Limpa resultados anteriores
+
+        if (!results || results.length === 0) {
+            container.innerHTML = '<div style="padding: 10px; color: #666;">Nenhum resultado encontrado.</div>';
+            return;
+        }
+
+        const list = document.createElement('div');
+        list.style.display = 'flex';
+        list.style.flexDirection = 'column';
+        list.style.gap = '10px';
+
+        results.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.style.border = '1px solid #e0e0e0';
+            card.style.borderRadius = '8px';
+            card.style.padding = '15px';
+            card.style.backgroundColor = '#f9f9f9';
+            card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+            card.style.transition = 'transform 0.2s';
+
+            // Índice
+            const indexSpan = document.createElement('span');
+            indexSpan.textContent = `#${index + 1}`;
+            indexSpan.style.fontWeight = 'bold';
+            indexSpan.style.color = '#007bff';
+            indexSpan.style.marginRight = '10px';
+
+            // Fonte
+            const sourceSpan = document.createElement('span');
+            sourceSpan.textContent = `fonte: ${item.metadata.source} título: ${item.metadata.title}` || 'Fonte desconhecida';
+            sourceSpan.style.color = '#555';
+            sourceSpan.style.fontSize = '0.9em';
+
+            // Score
+            const scoreDiv = document.createElement('div');
+            scoreDiv.style.marginTop = '5px';
+            scoreDiv.style.color = '#d9534f';
+            scoreDiv.style.fontWeight = 'bold';
+            scoreDiv.textContent = `Score: ${item.score ? item.score.toFixed(4) : 'N/A'}`;
+
+            // Conteúdo
+            const contentDiv = document.createElement('div');
+            contentDiv.style.marginTop = '8px';
+            contentDiv.style.color = '#333';
+            contentDiv.style.fontSize = '0.95em';
+            contentDiv.style.lineHeight = '1.4';
+            contentDiv.textContent = item.content || 'Sem conteúdo';
+            contentDiv.style.width = '100%';
+            contentDiv.style.whiteSpace = 'pre-wrap';
+            contentDiv.style.wordBreak = 'break-word';
+
+            contentDiv.style.display = item.content ? 'block' : 'none';
+
+            card.appendChild(indexSpan);
+            card.appendChild(sourceSpan);
+            card.appendChild(scoreDiv);
+            card.appendChild(contentDiv);
+            list.appendChild(card);
+        });
+
+        container.appendChild(list);
+    }
+
+    async function GetRetrieval(){
+      RetrievalButton.disabled = true;
+      logsStatus.textContent = "";
+      logsStatus.classList.remove("error");
+
+      try {
+        const payload = {
+          query: QueryRetrievalInput.value.trim(),
+          semantic_k: Number(SemanticRetrievalInput.value),
+          bm25_k: Number(bm25RetrievalInput.value),
+          top_k: Number(topRetrievalInput.value),
+          include_content: ContentRetrievalInput.checked,
+        };
+
+        const response = await fetch("/retrieval/debug",{
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        })
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          const detail = Array.isArray(data.detail)
+            ? data.detail.map(item => `${item.loc.join(".")}: ${item.msg}`).join("; ")
+            : data.detail;
+          throw new Error(detail || "Erro ao buscar Retrieval.");
+        }
+        console.log(data.semantic)
+        renderRetrievalResults('OutputSemanticRetrieval', data.semantic);
+        renderRetrievalResults('OutputLexicalRetrieval', data.bm25);
+        renderRetrievalResults('OutputRerankRetrieval', data.reranked);
+
+        retrievalResponse.style.display = '';
+
+      } catch (error) {
+        logsStatus.textContent = `Erro: ${error.message}`;
+        logsStatus.classList.add("error");
+      } finally {
+        RetrievalButton.disabled = false;
+      }
+    }
+
+    RetrievalButton.addEventListener("click",GetRetrieval);
 
     // Estado inicial da tela ao abrir a interface.
     render();
