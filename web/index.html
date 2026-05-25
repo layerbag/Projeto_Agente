@@ -1,467 +1,880 @@
 <!doctype html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Projeto Agente</title>
+  <title>Projeto Agente - LLM Orchestrator</title>
+
+  <!-- Fontes do Google -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Biblioteca de Ícones Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
   <style>
-    /* Estilos base da página e do container principal. */
-    body {
+    /* Variáveis do Design System */
+    :root {
+      --bg-body: #06080c;
+      --bg-app: #090c12;
+      --bg-card: #0f131a;
+      --bg-card-hover: #141b26;
+      --bg-input: #151a24;
+      --bg-user-msg: linear-gradient(135deg, #4f46e5, #6366f1);
+      --bg-assistant-msg: #141b26;
+
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-rgb: 99, 102, 241;
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --border-color: rgba(255, 255, 255, 0.06);
+      --border-color-hover: rgba(255, 255, 255, 0.12);
+
+      --success: #10b981;
+      --error: #f43f5e;
+      --warning: #f59e0b;
+
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-title: 'Outfit', sans-serif;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Reset Geral */
+    * {
+      box-sizing: border-box;
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0b0d10;
-      color: #edf0f5;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    }
+
+    /* Scrollbars Customizados */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-full);
+      transition: background var(--transition-fast);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    body {
+      background: var(--bg-body);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     .app {
+      max-width: 1440px;
+      width: 100%;
       margin: 0 auto;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      padding-bottom: 24px;
+      padding: 0 24px 24px;
     }
 
-    /* Cabeçalho com título, sessão atual e botão de nova conversa. */
+    /* Cabeçalho */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
-      padding: 24px 16px 12px;
-      border-bottom: 0;
+      gap: 20px;
+      padding: 24px 0 16px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 16px;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.15));
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: var(--accent);
+      padding: 10px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
     }
 
     h1 {
-      margin: 0;
-      font-size: 28px;
+      font-family: var(--font-title);
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff 40%, var(--text-secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
-    .actions {
+    .session-info-wrapper {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
     }
 
     .session {
-      margin-top: 8px;
       font-size: 13px;
-      color: #8993a3;
-      word-break: break-all;
-    }
-
-    /* Área das mensagens e balões do chat. */
-    .messages {
-      flex: 1;
-      padding: 20px 16px;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--border-color);
       display: flex;
-      flex-direction: row;
-      gap: 12px;
-    }
-
-    .message {
-      max-width: 78%;
-      padding: 12px 14px;
-      border-radius: 8px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-    }
-
-    .user {
-      align-self: flex-end;
-      background:#c8ced8;
-      color: #111827;
-    }
-
-    .assistant {
-      align-self: flex-start;
-      background: #181b22;
-      border: 0;
-      color: #9ca6b6;
-    }
-
-    /* Formulário usado para enviar mensagens ao agente. */
-    form {
-      display: flex;
-      gap: 8px;
-      padding: 16px;
-      border-top: 0;
-      background: #11141a;
-    }
-
-    #pdfFileInput::file-selector-button {
-      border: 0;
-      border-radius: 8px;
-      background: #e5e7eb;
-      color: #111827;
-      padding: 10px 14px;
-      margin-right: 12px;
-      cursor: pointer;
-    }
-
-    #pdfFileInput::file-selector-button:hover {
-      background: #f8fafc;
-    }
-
-    input {
-      flex: 1;
-      padding: 12px;
-      font-size: 15px;
-      border: 0;
-      border-radius: 8px;
-      background: #1a1e26;
-      color: #edf0f5;
-    }
-
-    input::placeholder {
-      color: #7f8998;
-    }
-
-    button {
-      padding: 10px 18px;
-      border: 0;
-      border-radius: 8px;
-      background: #1a1e26;
-      color: #edf0f5;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    button:hover:not(:disabled) {
-      background:#7f8998;
-      color:#2a303b;
-    }
-
-    .actions {
-      padding-top: 10px;
-    }
-
-    .secondary {
-      background: #1a1e26;
-      color: #edf0f5;
-      border: 0;
-      padding: 8px 12px;
-    }
-
-    .secondary:hover {
-      background: #2a303b;
-    }
-
-    /* Painel da aba de indexação e gerenciamento de documentos. */
-    .panel {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 20px;
-      padding: 20px;
-      background: #0b0d10;
-      border-bottom: 0;
-    }
-
-    .panel-card {
-      border: 0;
-      border-radius: 16px;
-      background: #12151b;
-      padding: 22px;
-      display: grid;
-      gap: 16px;
-      min-width: 0;
-      margin: 10px;
-    }
-
-    @media (max-width: 780px) {
-      .panel {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* Abas que alternam entre chat e documentos. */
-    .tabs {
-      display: flex;
-      gap: 8px;
-      padding: 12px 16px;
-      background: #0b0d10;
-      border-bottom: 0;
       align-items: center;
-    }
-
-    .tab {
-      padding: 12px 18px;
-      border-radius: 10px;
-      background: transparent;
-      border: 0;
-      cursor: pointer;
-      color: #9ca6b6;
-      transition: all 0.2s ease;
-    }
-
-    .tab:hover {
-      background: #1a1e26;
-      color: #edf0f5;
-    }
-
-    .tab.active {
-      background: #e5e7eb;
-      color: #111827;
-      border-color: transparent;
-    }
-
-    /* Layout do chat: sessões à esquerda e conversa à direita. */
-    .chat-section {
-      display: grid;
-      grid-template-columns: minmax(320px, 360px) 1fr;
-      gap: 20px;
-      padding: 24px 16px 16px;
-      align-items: start;
-      background: #0b0d10;
-      border-bottom: 0;
-    }
-
-    .chat-main {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      background: #11141a;
-      border: 0;
-      border-radius: 16px;
+      gap: 6px;
+      max-width: 320px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
       overflow: hidden;
     }
 
-    .messages {
-      flex: 1;
-      padding: 24px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      min-height: 400px;
-      max-height: 500px;
-      overflow-y: auto;
-      background: #0f1217;
+    .session::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: var(--radius-full);
+      box-shadow: 0 0 8px var(--success);
     }
 
-    form {
+    /* Abas */
+    .tabs {
       display: flex;
-      gap: 8px;
-      padding: 16px;
-      border-top: 0;
-      background: #11141a;
+      gap: 6px;
+      padding: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      margin-bottom: 24px;
+      align-items: center;
+      width: fit-content;
     }
 
-    /* Lista lateral de sessões salvas no backend. */
-    .sessions-list {
-      background: #11141a;
+    .tab {
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      background: transparent;
       border: 0;
-      border-radius: 16px;
-      padding: 18px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-family: var(--font-title);
+      font-weight: 500;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all var(--transition-fast);
+    }
+
+    .tab:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: var(--text-primary);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    }
+
+    /* Layout do Chat */
+    .chat-section {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+      align-items: stretch;
+      min-height: 600px;
+    }
+
+    /* Sidebar de Sessões */
+    .sessions-list {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      max-height: 78vh;
-      min-width: 300px;
-      overflow: auto;
+      gap: 16px;
+      max-height: calc(100vh - 180px);
+      position: sticky;
+      top: 24px;
+    }
+
+    .sessions-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-title);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .sessions-list ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
     }
 
     .sessions-list li {
       padding: 12px 14px;
-      border-radius: 12px;
-      transition: background 0.2s ease, transform 0.2s ease;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      color: var(--text-secondary);
+      background: var(--bg-input);
+      border: 1px solid transparent;
+      font-size: 13px;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sessions-list li::before {
+      font-family: 'lucide';
+      content: '\e99a';
+      /* chat bubble icon identifier */
+      font-size: 14px;
+      opacity: 0.6;
     }
 
     .sessions-list li:hover {
-      background: #1d222b;
-      transform: translateX(1px);
+      background: var(--bg-card-hover);
+      border-color: var(--border-color-hover);
+      color: var(--text-primary);
+      transform: translateX(2px);
     }
 
-    /* Ajustes para telas médias e pequenas. */
-    @media (max-width: 900px) {
-      .app {
-        padding: 0 12px;
+    .sessions-list li.selected {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .sessions-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 16px;
+    }
+
+    /* Main Chat */
+    .chat-main {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .messages {
+      flex: 1;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 480px;
+      max-height: 520px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 14px 18px;
+      border-radius: var(--radius-lg);
+      line-height: 1.55;
+      font-size: 14px;
+      white-space: pre-wrap;
+      animation: fadeIn 0.25s var(--transition-normal);
+      position: relative;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
       }
 
-      .tab {
-        flex: 1;
-        text-align: center;
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--bg-user-msg);
+      color: #ffffff;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2);
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--bg-assistant-msg);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.assistant.error-msg {
+      border-color: rgba(244, 63, 94, 0.3);
+      background: rgba(244, 63, 94, 0.05);
+      color: #fda4af;
+    }
+
+    /* Form do Chat */
+    form {
+      display: flex;
+      gap: 10px;
+      padding: 16px 24px 24px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      align-items: center;
+    }
+
+    /* Inputs e Botões */
+    input,
+    select,
+    textarea {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-size: 14px;
+      font-family: var(--font-body);
+      transition: all var(--transition-fast);
+      width: 100%;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: var(--bg-card-hover);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    button {
+      padding: 12px 20px;
+      border: 0;
+      border-radius: var(--radius-md);
+      background: var(--accent);
+      color: var(--text-primary);
+      font-family: var(--font-title);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all var(--transition-fast);
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    button.secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: var(--border-color-hover);
+      box-shadow: none;
+    }
+
+    button.danger {
+      background: rgba(244, 63, 94, 0.1);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.2);
+    }
+
+    button.danger:hover:not(:disabled) {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: rgba(244, 63, 94, 0.3);
+      box-shadow: 0 4px 12px rgba(244, 63, 94, 0.1);
+    }
+
+    /* Painéis de Documentação / Retrieval */
+    .panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      transition: border-color var(--transition-fast);
+    }
+
+    .panel-card:hover {
+      border-color: var(--border-color-hover);
+    }
+
+    .panel-card h2 {
+      font-family: var(--font-title);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .panel-card h3 {
+      font-family: var(--font-title);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .field-group.horizontal {
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .field-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Estilização para o seletor de tipo de indexação (PDF/URL) */
+    .radio-group {
+      display: flex;
+      gap: 8px;
+      background: var(--bg-body);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+    }
+
+    .radio-group label {
+      flex: 1;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: all var(--transition-fast);
+    }
+
+    .radio-group label:has(input:checked) {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .radio-group input[type="radio"] {
+      display: none;
+    }
+
+    /* Custom File Input */
+    input[type="file"] {
+      padding: 8px;
+      cursor: pointer;
+      background: var(--bg-body);
+    }
+
+    input[type="file"]::file-selector-button {
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #ffffff;
+      padding: 6px 12px;
+      margin-right: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+
+    input[type="file"]::file-selector-button:hover {
+      background: var(--accent-hover);
+    }
+
+    .panel-card small {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: -4px;
+    }
+
+    .helper-text {
+      font-size: 13px;
+      min-height: 20px;
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .helper-text.error {
+      color: var(--error);
+    }
+
+    /* Terminal de Logs */
+    .terminal-container {
+      background: #020408;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      margin-top: 12px;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+    }
+
+    .terminal-header {
+      background: #0a0e14;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: var(--radius-full);
+    }
+
+    .terminal-dot.red {
+      background: #ef4444;
+    }
+
+    .terminal-dot.yellow {
+      background: #f59e0b;
+    }
+
+    .terminal-dot.green {
+      background: #10b981;
+    }
+
+    .terminal-title {
+      font-family: var(--font-title);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    pre {
+      font-family: 'Consolas', 'Fira Code', 'Courier New', Courier, monospace;
+      font-size: 13px;
+      padding: 16px;
+      color: #a9b2c3;
+      line-height: 1.5;
+      overflow-x: auto;
+      text-align: left;
+    }
+
+    /* Parâmetros e Debug do Retrieval */
+    .retrieval-params-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .retrieval-card-result {
+      background: var(--bg-body);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      transition: all var(--transition-fast);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .retrieval-card-result:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+    }
+
+    .retrieval-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .retrieval-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .retrieval-source {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      word-break: break-all;
+    }
+
+    .retrieval-score {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      width: fit-content;
+    }
+
+    .retrieval-content {
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.5;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--accent);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .animate-spin {
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
       }
 
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .success-text {
+      color: #10b981 !important;
+    }
+
+    /* Responsividade */
+    @media (max-width: 1024px) {
       .chat-section {
         grid-template-columns: 1fr;
       }
 
       .sessions-list {
-        max-height: none;
+        max-height: 300px;
+        position: static;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app {
+        padding: 0 16px 16px;
+      }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .session-info-wrapper {
+        align-items: flex-start;
         width: 100%;
       }
 
-      .panel,
-      .chat-section,
-      .panel-card,
-      .messages,
-      form {
-        padding: 12px;
+      .tabs {
+        width: 100%;
+        overflow-x: auto;
+        padding: 4px;
       }
 
-      .messages {
-        padding: 16px 0 0;
-      }
-    }
-
-    /* Ajustes extras para celulares. */
-    @media (max-width: 640px) {
-      .app {
-        max-width: 100%;
+      .tab {
+        flex: 1;
+        justify-content: center;
+        padding: 8px 12px;
+        font-size: 13px;
       }
 
-      .panel {
+      .retrieval-params-grid {
         grid-template-columns: 1fr;
       }
-
-      .chat-section {
-        padding: 12px 0 0;
-      }
-
-      header,
-      .tabs,
-      .panel,
-      .chat-section,
-      form {
-        padding-left: 12px;
-        padding-right: 12px;
-      }
-
-      .sessions-list ul {
-        gap: 4px;
-      }
-
-      .sessions-list li {
-        padding: 10px;
-        font-size: 14px;
-      }
-
-      button,
-      input,
-      select {
-        font-size: 14px;
-      }
-    }
-
-    /* Estados visuais dos itens da lista de sessões. */
-    .sessions-list ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .sessions-list li {
-      padding: 8px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      color: #9ca6b6;
-      background: #1a1e26;
-      border: 0;
-    }
-
-    .sessions-list li.selected {
-      background: #e5e7eb;
-      color: #111827;
-      border-color: transparent;
-    }
-
-    /* Cartões, campos e mensagens auxiliares da aba de documentos. */
-    .panel-card {
-      border: 0;
-      border-radius: 12px;
-      background: #11141a;
-      padding: 18px;
-      display: grid;
-      gap: 14px;
-      min-width: 0;
-    }
-
-    select {
-      width: 100%;
-      padding: 12px;
-      font-size: 15px;
-      border: 0;
-      border-radius: 8px;
-      background: #1a1e26;
-      color: #edf0f5;
-    }
-
-    .panel-card small {
-      color: #8993a3;
-      display: block;
-      margin-top: -4px;
-    }
-
-    .panel-card h2 {
-      margin: 0;
-      font-size: 16px;
-      color: #edf0f5;
-    }
-
-    .field-group {
-      display: flex;
-      flex-direction: row;
-      gap: 8px;
-    }
-
-    .field-group[hidden] {
-      display: none;
-    }
-
-    .field-group label {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: #c8ced8;
-    }
-
-    .helper-text {
-      min-height: 18px;
-      font-size: 13px;
-      color: #9ca6b6;
-    }
-
-    .helper-text.error {
-      color: #f87171;
     }
   </style>
 </head>
+
 <body>
   <main class="app">
     <!-- Cabeçalho global da aplicação. -->
     <header>
-      <h1>Projeto Agente</h1>
-      <div class="session" id="session"></div>
+      <div class="logo-container">
+        <div class="logo-icon">
+          <i data-lucide="bot"></i>
+        </div>
+        <h1>Projeto Agente</h1>
+      </div>
+      <div class="session-info-wrapper">
+        <div class="session" id="session">Sessão ainda não iniciada</div>
+      </div>
       <div class="actions">
-        <button class="secondary" id="newSession" type="button">Nova conversa</button>
+        <button class="secondary" id="newSession" type="button">
+          <i data-lucide="plus"></i> Nova conversa
+        </button>
       </div>
     </header>
 
     <!-- Abas principais da interface. -->
     <div class="tabs">
-      <button class="tab active" id="tabChat">Chat</button>
-      <button class="tab" id="tabDocs">Indexar / Documentos</button>
-      <button class="tab" id="tabLogs">Logs</button>
-      <button class="tab" id="tabRetrieval">Retrieval</button>
+      <button class="tab active" id="tabChat">
+        <i data-lucide="message-square"></i> Chat
+      </button>
+      <button class="tab" id="tabDocs">
+        <i data-lucide="file-text"></i> Indexar / Documentos
+      </button>
+      <button class="tab" id="tabLogs">
+        <i data-lucide="terminal"></i> Logs
+      </button>
+      <button class="tab" id="tabRetrieval">
+        <i data-lucide="search"></i> Retrieval
+      </button>
     </div>
 
     <!-- Área de conversa com histórico de sessões e mensagens. -->
     <section id="chatSection" class="chat-section">
       <aside class="sessions-list">
-        <h3 style="margin:0;">Sessões</h3>
-        <ul id="sessionsList"><li>Carregando...</li></ul>
-        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-          <button id="refreshSessionsButton" class="secondary">Atualizar sessões</button>
-          <button id="newSessionFromList" class="secondary">Nova sessão</button>
-          <button id="deleteSessionButton" class="secondary">Excluir sessão</button>
+        <div class="sessions-header">
+          <i data-lucide="folder-open"></i> Sessões
+        </div>
+        <ul id="sessionsList">
+          <li>Carregando...</li>
+        </ul>
+        <div class="sessions-actions">
+          <button id="refreshSessionsButton" class="secondary" title="Atualizar sessões">
+            <i data-lucide="rotate-cw"></i>
+          </button>
+          <button id="newSessionFromList" class="secondary" title="Nova sessão">
+            <i data-lucide="plus"></i>
+          </button>
+          <button id="deleteSessionButton" class="danger" title="Excluir sessão">
+            <i data-lucide="trash-2"></i>
+          </button>
         </div>
       </aside>
 
@@ -470,7 +883,9 @@
 
         <form id="chatForm">
           <input id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off" />
-          <button id="sendButton" type="submit">Enviar</button>
+          <button id="sendButton" type="submit">
+            Enviar <i data-lucide="send"></i>
+          </button>
         </form>
       </main>
     </section>
@@ -478,24 +893,40 @@
     <!-- Área para indexar novos documentos ou remover documentos existentes. -->
     <section id="docsSection" class="panel" style="display:none">
       <div class="panel-card">
-        <h2>Indexar documento</h2>
+        <h2><i data-lucide="upload-cloud"></i> Indexar documento</h2>
+
         <div class="field-group">
-          <label><input type="radio" name="indexType" value="pdf" checked /> PDF</label>
-          <label><input type="radio" name="indexType" value="url" /> URL</label>
+          <label>Tipo de Indexação</label>
+          <div class="radio-group">
+            <label>
+              <input type="radio" name="indexType" value="pdf" checked />
+              PDF
+            </label>
+            <label>
+              <input type="radio" name="indexType" value="url" />
+              URL (YouTube)
+            </label>
+          </div>
         </div>
+
         <div class="field-group" id="pdfInputWrapper">
           <label for="pdfFileInput">Selecione um arquivo PDF</label>
           <input id="pdfFileInput" type="file" accept="application/pdf" />
         </div>
-        <div class="field-group" id="urlInputWrapper" hidden>
+
+        <div class="field-group" id="urlInputWrapper" hidden="true">
           <label for="indexUrlInput">Cole a URL do YouTube</label>
           <input id="indexUrlInput" type="text" placeholder="https://www.youtube.com/watch?v=..." />
         </div>
-        <button id="indexDocButton" type="button">Indexar documento</button>
+
+        <button id="indexDocButton" type="button" style="margin-top: 8px;">
+          <i data-lucide="upload"></i> Indexar documento
+        </button>
         <div class="helper-text" id="indexStatus"></div>
       </div>
+
       <div class="panel-card">
-        <h2>Excluir documento</h2>
+        <h2><i data-lucide="trash-2"></i> Excluir documento</h2>
         <div class="field-group">
           <label for="deleteSourceSelect">Documento indexado</label>
           <select id="deleteSourceSelect">
@@ -503,82 +934,106 @@
           </select>
           <small>Escolha um documento salvo para remover.</small>
         </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <button id="deleteDocumentButton" type="button">Excluir documento</button>
-          <button id="refreshDocsButton" type="button">Atualizar lista</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top: 8px;">
+          <button id="deleteDocumentButton" class="danger" type="button">
+            <i data-lucide="trash-2"></i> Excluir documento
+          </button>
+          <button id="refreshDocsButton" class="secondary" type="button">
+            <i data-lucide="rotate-cw"></i> Atualizar lista
+          </button>
         </div>
         <div class="helper-text" id="deleteStatus"></div>
       </div>
     </section>
 
-    <section id="logsSection" class="panel" style="display:none">
+    <!-- Área de Logs -->
+    <section id="logsSection" class="panel" style="display:none; grid-template-columns: 1fr;">
       <div class="panel-card">
-        <h2>Logs</h2>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <input id="logsLinesInput" type="number" min="1" max="1000" value="200" />
-          <button id="refreshLogsButton" type="button">Atualizar logs</button>
+        <h2><i data-lucide="terminal"></i> Logs do Servidor</h2>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="field-group" style="width: auto; min-width: 140px;">
+            <label for="logsLinesInput">Linhas a recuperar</label>
+            <input id="logsLinesInput" type="number" min="1" max="1000" value="200" />
+          </div>
+          <button id="refreshLogsButton" type="button">
+            <i data-lucide="rotate-cw"></i> Atualizar logs
+          </button>
         </div>
 
         <div class="helper-text" id="logsStatus"></div>
-        <pre id="logsOutput" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <div class="terminal-dot red"></div>
+              <div class="terminal-dot yellow"></div>
+              <div class="terminal-dot green"></div>
+            </div>
+            <div class="terminal-title">server.log</div>
+            <div style="width: 42px;"></div>
+          </div>
+          <pre id="logsOutput"></pre>
+        </div>
       </div>
     </section>
 
-    <section id="RetrievalSection" class="panel" style="grid-template-columns: auto; display:none;">
-      <header class="header" style="width: 100%;">
-        <h2 style="text-align: center; width: 100%;">Retrieval Debug</h2>
-      </header>
-      
+    <!-- Área de Retrieval -->
+    <section id="RetrievalSection" class="panel" style="grid-template-columns: 1fr; display:none;">
       <div class="panel-card">
-        
-        <h3>Parametros</h3>
+        <h2><i data-lucide="search"></i> Busca & Recuperação (Retrieval Debug)</h2>
+
         <div class="field-group">
-          <label for="QueryRetrievalInput">Query</label>
-          <input id="QueryRetrievalInput" type="text" placeholder="Digite sua Query aqui" aria-label="Query"/>
+          <label for="QueryRetrievalInput">Query de Busca</label>
+          <input id="QueryRetrievalInput" type="text" placeholder="Digite sua Query aqui..." aria-label="Query" />
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px 30px;">
-          <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        <div class="retrieval-params-grid">
+          <div style="display: flex; flex-direction: column; gap: 16px;">
             <div class="field-group">
-              <label for="SemanticRetrievalInput">Número de Documentos recuperados por Semântica</label>
-              <input id="SemanticRetrievalInput" type="number" style="max-width: 50px;" value="10"/>
+              <label for="SemanticRetrievalInput">Docs recuperados por Semântica</label>
+              <input id="SemanticRetrievalInput" type="number" value="10" />
             </div>
             <div class="field-group">
-              <label for="bm25RetrievalInput">Número de Documentos recuperados pelo bm25</label>
-              <input id="bm25RetrievalInput" type="number" style="max-width: 50px;" value="10"/>
+              <label for="bm25RetrievalInput">Docs recuperados por Lexical (bm25)</label>
+              <input id="bm25RetrievalInput" type="number" value="10" />
             </div>
           </div>
-          <div style="display: flex; flex-direction: column; justify-content: flex-start; gap: 20px;">
+
+          <div style="display: flex; flex-direction: column; gap: 16px;">
             <div class="field-group">
-              <label for="topRetrievalInput">Total Documentos</label>
-              <input id="topRetrievalInput" type="number" style="max-width: 50px;" value="5"/>
+              <label for="topRetrievalInput">Total Documentos Finais (Rerank)</label>
+              <input id="topRetrievalInput" type="number" value="5" />
             </div>
-            <div class="field-group" style="display: flex; justify-content: flex-start;">
-              <label for="ContentRetrievalInput" style="cursor: pointer;">Incluir Conteúdo</label>
-              <input id="ContentRetrievalInput" type="checkbox" style="width: 16px; height: 16px; cursor: pointer; accent-color: #3357cc; flex: 0;"/>
+
+            <div class="field-group horizontal" style="margin-top: 28px; display: flex; align-items: center; gap: 8px;">
+              <input id="ContentRetrievalInput" type="checkbox"
+                style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent);" checked />
+              <label for="ContentRetrievalInput" style="cursor: pointer; font-size: 13px;">Incluir Conteúdo dos
+                Documentos</label>
             </div>
           </div>
         </div>
-        <button id="RetrievalButton">Executar Retrieval</button>
+
+        <button id="RetrievalButton" style="width: fit-content; margin-top: 8px;">
+          <i data-lucide="play"></i> Executar Busca & Retrieval
+        </button>
       </div>
 
-      <div id="retrievalResponse" style="display: none; margin: 10px;">
+      <div id="retrievalResponse" style="display: none; flex-direction: column; gap: 24px; margin-top: 8px;">
         <div class="panel-card">
-          <h3>Resultados da Busca Semântica</h3>
-          <pre id="OutputSemanticRetrieval" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+          <h3><i data-lucide="bar-chart-2"></i> Resultados da Busca Semântica</h3>
+          <div id="OutputSemanticRetrieval"></div>
         </div>
-        
 
         <div class="panel-card">
-          <h3>Resultados da Busca Léxica (Bm25)</h3>
-          <pre id="OutputLexicalRetrieval" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+          <h3><i data-lucide="align-left"></i> Resultados da Busca Léxica (Bm25)</h3>
+          <div id="OutputLexicalRetrieval"></div>
         </div>
-        
 
         <div class="panel-card">
-          <h3>Rerank</h3>
-          <pre id="OutputRerankRetrieval" style="white-space:pre-wrap; overflow:auto; max-height:520px;"></pre>
+          <h3><i data-lucide="award"></i> Reranked (Resultados Finais Reordenados)</h3>
+          <div id="OutputRerankRetrieval"></div>
         </div>
-        
       </div>
     </section>
   </main>
@@ -604,7 +1059,6 @@
       localStorage.setItem("agent_messages", JSON.stringify(messages));
     }
 
-    // Renderiza o id da sessão e os balões de mensagem na tela.
     function render() {
       sessionEl.textContent = sessionId
         ? `Sessão: ${sessionId}`
@@ -614,12 +1068,14 @@
 
       for (const message of messages) {
         const item = document.createElement("div");
-        item.className = `message ${message.role}`;
+        const isError = message.content.startsWith("Erro:") || message.content.startsWith("Error:");
+        item.className = `message ${message.role}${isError ? ' error-msg' : ''}`;
         item.textContent = message.content;
         messagesEl.appendChild(item);
       }
 
       messagesEl.scrollTop = messagesEl.scrollHeight;
+      lucide.createIcons();
     }
 
     // Envia a mensagem para a API e adiciona a resposta do agente ao histórico.
@@ -770,7 +1226,7 @@
 
     // Troca a área visível entre chat e documentos.
     function switchToTab(tab) {
-      Object.entries(tabs).forEach(([name, {button, section}]) => {
+      Object.entries(tabs).forEach(([name, { button, section }]) => {
         const isActive = name === tab;
 
         button.classList.toggle("active", isActive);
@@ -790,7 +1246,8 @@
 
     // Busca as sessões salvas no backend e monta a lista lateral.
     async function refreshSessions() {
-      sessionsList.innerHTML = '<li>Carregando...</li>';
+      sessionsList.innerHTML = '<li><i data-lucide="loader" class="animate-spin"></i> Carregando...</li>';
+      lucide.createIcons();
       selectedSessionId = null;
       try {
         const res = await fetch('/sessions_db');
@@ -804,7 +1261,23 @@
         for (const s of data.sessions) {
           const li = document.createElement('li');
           const preview = s.preview ? s.preview : s.session_id;
-          li.textContent = preview;
+
+          // Criar ícone Lucide
+          const icon = document.createElement('i');
+          icon.setAttribute('data-lucide', 'message-square');
+          icon.style.width = '14px';
+          icon.style.height = '14px';
+          icon.style.flexShrink = '0';
+          li.appendChild(icon);
+
+          // Criar span de texto
+          const textSpan = document.createElement('span');
+          textSpan.textContent = preview;
+          textSpan.style.whiteSpace = 'nowrap';
+          textSpan.style.overflow = 'hidden';
+          textSpan.style.textOverflow = 'ellipsis';
+          li.appendChild(textSpan);
+
           li.title = s.session_id;
           li.dataset.sessionId = s.session_id;
           li.addEventListener('click', () => {
@@ -815,6 +1288,7 @@
           });
           sessionsList.appendChild(li);
         }
+        lucide.createIcons();
       } catch (err) {
         sessionsList.innerHTML = `<li>Erro ao carregar: ${err.message}</li>`;
       }
@@ -869,7 +1343,7 @@
           switchToTab('chat');
           return;
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Fallback: define a sessão e limpa as mensagens locais.
       sessionId = session_id;
@@ -888,8 +1362,8 @@
 
     // Envia PDF ou URL do YouTube para indexação no backend.
     async function indexDocument() {
-      indexStatus.textContent = "";
-      indexStatus.classList.remove("error");
+      indexStatus.innerHTML = "";
+      indexStatus.className = "helper-text";
       indexDocButton.disabled = true;
 
       const selected = document.querySelector('input[name="indexType"]:checked').value;
@@ -922,18 +1396,63 @@
           throw new Error(data.detail || data.message || "Erro ao indexar documento.");
         }
 
-        indexStatus.textContent = data.message || "Documento indexado com sucesso.";
-        if (selected === "pdf") {
-          pdfFileInput.value = "";
-        } else {
-          indexUrlInput.value = "";
+        if (data.status === "already_indexed") {
+          indexStatus.innerHTML = `<i data-lucide="info" style="display:inline-block; width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> ${data.message}`;
+          indexStatus.classList.add("error");
+          lucide.createIcons();
+          indexDocButton.disabled = false;
+          return;
         }
 
-        await refreshDocuments();
+        if (data.status === "processing") {
+          const taskId = data.task_id;
+          indexStatus.innerHTML = `<i data-lucide="loader" class="animate-spin" style="display:inline-block; width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> Indexando documento em segundo plano... Por favor, aguarde.`;
+          lucide.createIcons();
+
+          // Inicia polling para verificar o status
+          const intervalId = setInterval(async () => {
+            try {
+              const statusResponse = await fetch(`/indexDoc/status/${taskId}`);
+              if (!statusResponse.ok) {
+                clearInterval(intervalId);
+                throw new Error("Erro ao consultar status da indexação.");
+              }
+              const statusData = await statusResponse.json();
+
+              if (statusData.status === "completed") {
+                clearInterval(intervalId);
+                indexStatus.innerHTML = `<i data-lucide="check-circle" class="success-text" style="display:inline-block; width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> ${statusData.message || 'Documento indexado com sucesso!'}`;
+                lucide.createIcons();
+                indexDocButton.disabled = false;
+
+                // Limpar campos
+                if (selected === "pdf") {
+                  pdfFileInput.value = "";
+                } else {
+                  indexUrlInput.value = "";
+                }
+
+                await refreshDocuments();
+              } else if (statusData.status === "failed") {
+                clearInterval(intervalId);
+                indexStatus.innerHTML = `<i data-lucide="alert-triangle" style="display:inline-block; width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> Erro na indexação: ${statusData.error || 'Falha desconhecida.'}`;
+                indexStatus.classList.add("error");
+                lucide.createIcons();
+                indexDocButton.disabled = false;
+              }
+            } catch (pollError) {
+              clearInterval(intervalId);
+              indexStatus.innerHTML = `<i data-lucide="alert-triangle" style="display:inline-block; width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> Erro: ${pollError.message}`;
+              indexStatus.classList.add("error");
+              lucide.createIcons();
+              indexDocButton.disabled = false;
+            }
+          }, 2000);
+        }
       } catch (error) {
-        indexStatus.textContent = `Erro: ${error.message}`;
+        indexStatus.innerHTML = `<i data-lucide="alert-triangle" style="display:inline-block; width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> Erro: ${error.message}`;
         indexStatus.classList.add("error");
-      } finally {
+        lucide.createIcons();
         indexDocButton.disabled = false;
       }
     }
@@ -1017,7 +1536,7 @@
 
       const lines = logsLinesInput.value || 200;
 
-      try{
+      try {
         const response = await fetch(`/logs?lines=${encodeURIComponent(lines)}`);
 
         const data = await response.json();
@@ -1040,72 +1559,68 @@
 
     // Função auxiliar para renderizar os resultados como cartões
     function renderRetrievalResults(containerId, results) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = ''; // Limpa resultados anteriores
+      const container = document.getElementById(containerId);
+      container.innerHTML = ''; // Limpa resultados anteriores
 
-        if (!results || results.length === 0) {
-            container.innerHTML = '<div style="padding: 10px; color: #666;">Nenhum resultado encontrado.</div>';
-            return;
+      if (!results || results.length === 0) {
+        container.innerHTML = '<div style="padding: 12px; color: var(--text-muted); font-size: 13px;"><i data-lucide="info" style="display:inline-block; width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> Nenhum resultado encontrado.</div>';
+        lucide.createIcons();
+        return;
+      }
+
+      const list = document.createElement('div');
+      list.style.display = 'flex';
+      list.style.flexDirection = 'column';
+      list.style.gap = '12px';
+
+      results.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'retrieval-card-result';
+
+        // Cabeçalho do Card
+        const header = document.createElement('div');
+        header.className = 'retrieval-card-header';
+
+        // Badge com número
+        const badge = document.createElement('span');
+        badge.className = 'retrieval-badge';
+        badge.textContent = `#${index + 1}`;
+
+        // Fonte / Origem do documento
+        const source = document.createElement('span');
+        source.className = 'retrieval-source';
+        const sourceText = item.metadata.source || 'Fonte desconhecida';
+        const titleText = item.metadata.title || 'Sem título';
+        source.innerHTML = `<i data-lucide="file" style="display:inline-block; width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i> <strong>Fonte:</strong> ${sourceText} | <strong>Título:</strong> ${titleText}`;
+
+        header.appendChild(badge);
+        header.appendChild(source);
+        card.appendChild(header);
+
+        // Score do Retrieval
+        if (item.score !== undefined && item.score !== null) {
+          const scoreDiv = document.createElement('div');
+          scoreDiv.className = 'retrieval-score';
+          scoreDiv.innerHTML = `<i data-lucide="award" style="display:inline-block; width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i> Score: <strong>${item.score.toFixed(4)}</strong>`;
+          card.appendChild(scoreDiv);
         }
 
-        const list = document.createElement('div');
-        list.style.display = 'flex';
-        list.style.flexDirection = 'column';
-        list.style.gap = '10px';
+        // Conteúdo textual recuperado
+        if (item.content) {
+          const contentDiv = document.createElement('div');
+          contentDiv.className = 'retrieval-content';
+          contentDiv.textContent = item.content;
+          card.appendChild(contentDiv);
+        }
 
-        results.forEach((item, index) => {
-            const card = document.createElement('div');
-            card.style.border = '1px solid #e0e0e0';
-            card.style.borderRadius = '8px';
-            card.style.padding = '15px';
-            card.style.backgroundColor = '#f9f9f9';
-            card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
-            card.style.transition = 'transform 0.2s';
+        list.appendChild(card);
+      });
 
-            // Índice
-            const indexSpan = document.createElement('span');
-            indexSpan.textContent = `#${index + 1}`;
-            indexSpan.style.fontWeight = 'bold';
-            indexSpan.style.color = '#007bff';
-            indexSpan.style.marginRight = '10px';
-
-            // Fonte
-            const sourceSpan = document.createElement('span');
-            sourceSpan.textContent = `fonte: ${item.metadata.source} título: ${item.metadata.title}` || 'Fonte desconhecida';
-            sourceSpan.style.color = '#555';
-            sourceSpan.style.fontSize = '0.9em';
-
-            // Score
-            const scoreDiv = document.createElement('div');
-            scoreDiv.style.marginTop = '5px';
-            scoreDiv.style.color = '#d9534f';
-            scoreDiv.style.fontWeight = 'bold';
-            scoreDiv.textContent = `Score: ${item.score ? item.score.toFixed(4) : 'N/A'}`;
-
-            // Conteúdo
-            const contentDiv = document.createElement('div');
-            contentDiv.style.marginTop = '8px';
-            contentDiv.style.color = '#333';
-            contentDiv.style.fontSize = '0.95em';
-            contentDiv.style.lineHeight = '1.4';
-            contentDiv.textContent = item.content || 'Sem conteúdo';
-            contentDiv.style.width = '100%';
-            contentDiv.style.whiteSpace = 'pre-wrap';
-            contentDiv.style.wordBreak = 'break-word';
-
-            contentDiv.style.display = item.content ? 'block' : 'none';
-
-            card.appendChild(indexSpan);
-            card.appendChild(sourceSpan);
-            card.appendChild(scoreDiv);
-            card.appendChild(contentDiv);
-            list.appendChild(card);
-        });
-
-        container.appendChild(list);
+      container.appendChild(list);
+      lucide.createIcons();
     }
 
-    async function GetRetrieval(){
+    async function GetRetrieval() {
       RetrievalButton.disabled = true;
       logsStatus.textContent = "";
       logsStatus.classList.remove("error");
@@ -1119,7 +1634,7 @@
           include_content: ContentRetrievalInput.checked,
         };
 
-        const response = await fetch("/retrieval/debug",{
+        const response = await fetch("/retrieval/debug", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1150,7 +1665,7 @@
       }
     }
 
-    RetrievalButton.addEventListener("click",GetRetrieval);
+    RetrievalButton.addEventListener("click", GetRetrieval);
 
     // Estado inicial da tela ao abrir a interface.
     render();
@@ -1158,4 +1673,5 @@
     refreshSessions();
   </script>
 </body>
+
 </html>

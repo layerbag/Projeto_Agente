@@ -1,0 +1,20 @@
+# docker-compose.yml
+version: '3.8'
+services:
+  database:
+    image: pgvector/pgvector:pg16
+    container_name: agent_postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_secure_password
+      POSTGRES_DB: orchestration_db
+    volumes:
+      # Persiste os dados do banco em uma pasta local, 
+      # garantindo que você não perca os dados quando o container parar.
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
+    driver: local

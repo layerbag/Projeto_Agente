@@ -3,7 +3,7 @@ import os
 import tempfile
 import sqlite3
 import json
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +25,7 @@ app.add_middleware(
 )
 
 sessions: dict[str, list[dict[str, str]]] = {}
+indexing_tasks: dict[str, dict] = {}
 
 # Serve os arquivos estáticos da interface em /static.
 app.mount("/static", StaticFiles(directory="web"), name="static")
@@ -235,14 +236,76 @@ def delete_session(session_id: str):
 
     return {"status": "deleted", "session_id": session_id}
 
+def process_index_pdf(temp_path: str, filename: str, source: str, task_id: str):
+    """ Função executada em segundo plano para extrair texto do PDF"""
+    indexing_tasks[task_id] = {"status": "processing", "source": source}
+    try:
+        doc = load_pdf(temp_path, filename)
+        for page in doc:
+            page.metadata["source"] = source
+        
+        # Divide o documento em chunks e salva no vector store para uso no RAG.
+        chunks = dividir_em_chunks(doc)
+        if chunks:
+            v_store = carregar_vector_store()
+            v_store.add_documents(chunks)
+            # resetar o bm25 para não ficar desatualizado
+            reset_bm25()
+            indexing_tasks[task_id] = {"status": "completed", "source": source, "message": "Documento indexado com sucesso."}
+            print(f"[BG TASK] Sucesso: {source} indexado.")
+        else:
+            indexing_tasks[task_id] = {"status": "failed", "source": source, "error": "Documento vazio ou sem chunks gerados."}
+            print(f"[BG TASK] Falha: {source} não indexado.")
+    except Exception as e:
+        indexing_tasks[task_id] = {"status": "failed", "source": source, "error": str(e)}
+        print(f"[BG TASK] Erro ao indexar {source}: {e}")
+    finally:
+        try:
+            os.unlink(temp_path)
+        except OSError as oe:
+            print(f"[BG TASK] Erro ao remover arquivo temporário: {oe}")
+
+def processar_indexacao_youtube_bg(url: str, task_id: str):
+    """
+    Função executada em segundo plano para extrair a transcrição,
+    fazer o chunking, adicionar ao Chroma e resetar o BM25.
+    """
+    indexing_tasks[task_id] = {"status": "processing", "source": url}
+    try:
+        # 1. Extrai metadados e transcrição
+        videoId, title = extrair_informacoes(url)
+        texto = extrair_transcricao(videoId)
+        metadata = {"video_id": videoId, "title": title, "source": url, "type": "YouTube"}
+        
+        # 2. Transforma em Document e faz o chunking
+        doc = yt2doc(texto, metadata)
+        chunks = dividir_em_chunks(doc)
+        
+        if chunks:
+            v_store = carregar_vector_store()
+            v_store.add_documents(chunks)
+            # 3. Reseta o BM25
+            reset_bm25()
+            indexing_tasks[task_id] = {"status": "completed", "source": url, "message": f"Vídeo '{title}' indexado com sucesso."}
+            print(f"[BG TASK] Sucesso: Vídeo do YouTube '{title}' indexado.")
+        else:
+            indexing_tasks[task_id] = {"status": "failed", "source": url, "error": "Transcrição vazia ou muito curta."}
+            print(f"[BG TASK] Transcrição vazia para o vídeo {url}")
+            
+    except Exception as e:
+        indexing_tasks[task_id] = {"status": "failed", "source": url, "error": str(e)}
+        print(f"[BG TASK] Erro ao indexar vídeo do YouTube {url}: {e}")
+
 
 @app.post("/indexDoc")
 async def index_docs(
+    background_tasks: BackgroundTasks,
     type: str = Form(...),
     url: str | None = Form(None),
     file: UploadFile | None = File(None),
 ):
     vector_store = carregar_vector_store()
+    task_id = str(uuid4())
 
     if type == "pdf":
         # Indexa um PDF enviado por upload, evitando duplicar fontes já indexadas.
@@ -253,30 +316,21 @@ async def index_docs(
         resultados = vector_store.get(where={"source": source})
 
         if len(resultados["ids"]) > 0:
-            return {"message": f"{source} já indexado"}
+            return {"status": "already_indexed", "message": f"{source} já indexado"}
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp.write(await file.read())
             temp_path = tmp.name
 
-        try:
-            doc = load_pdf(temp_path,source.split('/')[-1])
-            for page in doc:
-                page.metadata["source"] = source
-        finally:
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass
-
-        # Divide o documento em chunks e salva no vector store para uso no RAG.
-        chunks = dividir_em_chunks(doc)
-        if chunks:
-            vector_store.add_documents(chunks)
-            # resetar o bm25 para não ficar desatualizado
-            reset_bm25()
-            return {"message": "Documento Indexado"}
-        return {"message": "Documento Vazio"}
+        background_tasks.add_task(
+            process_index_pdf, 
+            temp_path, 
+            source,
+            source,
+            task_id,
+        )
+        indexing_tasks[task_id] = {"status": "processing", "source": source}
+        return {"status": "processing", "task_id": task_id, "message": "Iniciando processamento em segundo plano"}
 
     if type == "YouTube":
         # Indexa a transcrição de um vídeo do YouTube, também evitando duplicidade.
@@ -286,25 +340,25 @@ async def index_docs(
         resultados = vector_store.get(where={"source": url})
 
         if len(resultados["ids"]) > 0:
-            return {"message": f"{url} já indexado"}
+            return {"status": "already_indexed", "message": f"{url} já indexado"}
 
-        try:
-            # Extrai metadados, transcrição, transforma em documento e persiste os chunks.
-            videoId, title = extrair_informacoes(url)
-            texto = extrair_transcricao(videoId)
-            metadata = {"video_id": videoId, "title": title, "source": url, "type": "YouTube"}
-            doc = yt2doc(texto, metadata)
-            chunks = dividir_em_chunks(doc)
-            if chunks:
-                vector_store.add_documents(chunks)
-                # resetar o bm25 para não ficar desatualizado
-                reset_bm25()
-                return {"message": "Documento Indexado"}
-            return {"message": "Documento Vazio"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro ao indexar YouTube: {e}")
+        background_tasks.add_task(
+            processar_indexacao_youtube_bg, 
+            url,
+            task_id,
+        )
+        indexing_tasks[task_id] = {"status": "processing", "source": url}
+        return {"status": "processing", "task_id": task_id, "message": "Iniciando extração e processamento em segundo plano"}
 
     raise HTTPException(status_code=400, detail="Tipo de indexação inválido.")
+
+
+@app.get("/indexDoc/status/{task_id}")
+def get_indexing_status(task_id: str):
+    task = indexing_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarefa de indexação não encontrada.")
+    return task
 
 
 @app.get("/documents")

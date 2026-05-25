@@ -256,28 +256,28 @@ def retrieve_docs(state: RAGState) -> dict:
     # 5. CONTEXT COMPRESSION
     # =====================================================
 
-    compressor_groq = LLMChainExtractor.from_llm(groq)
-    compressor_gemini= LLMChainExtractor.from_llm(gemini)
+    # compressor_groq = LLMChainExtractor.from_llm(groq)
+    # compressor_gemini= LLMChainExtractor.from_llm(gemini)
 
-    try:
-        compressed_docs = compressor_groq.compress_documents(
-            reranked_docs,
-            query
-        )
-    except Exception:
-        compressed_docs = compressor_gemini.compress_documents(
-            reranked_docs,
-            query
-        )
-    # =====================================================
-    # 6. FORMATAR CONTEXTO
-    # =====================================================
+    # try:
+    #     compressed_docs = compressor_groq.compress_documents(
+    #         reranked_docs,
+    #         query
+    #     )
+    # except Exception:
+    #     compressed_docs = compressor_gemini.compress_documents(
+    #         reranked_docs,
+    #         query
+    #     )
+    # # =====================================================
+    # # 6. FORMATAR CONTEXTO
+    # # =====================================================
 
-    if not compressed_docs:
-        compressed_docs = reranked_docs
+    # if not compressed_docs:
+    #     compressed_docs = reranked_docs
 
     
-    context = formatar_docs(compressed_docs)
+    context = formatar_docs(reranked_docs)
 
     observe_docs(state["query"],query, reranked_docs)
 
@@ -289,7 +289,8 @@ def retrieve_docs(state: RAGState) -> dict:
 def generate_answer(state: RAGState):
     prompt = ChatPromptTemplate.from_messages([
         ("system",
-        """Você é um assistente que responde APENAS com base no contexto.
+        """Você é um assistente que responde APENAS com base no contexto. Não invente nada!
+        Caso não saiba a resposta com base no contexto, responda \"Não tenho informação sobre isso\"
          
         Contexto:
         {context}
