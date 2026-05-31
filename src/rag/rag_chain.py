@@ -1,6 +1,8 @@
+from pydantic._internal._validators import max_length_validator
+from langchain_core.output_parsers import json
+import json
 from typing import TypedDict, List, Annotated
 from rank_bm25 import BM25Okapi # type: ignore
-from langchain_classic.retrievers.document_compressors import LLMChainExtractor
 from sentence_transformers import CrossEncoder
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,18 +14,22 @@ from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 import sqlite3
-from src.rag.vector_store import carregar_vector_store
+from langchain_core.documents import Document
+from src.rag.vector_store import get_engine, COLLECTION_NAME, get_embeddings
+from sqlalchemy import text
+from llmlingua import PromptCompressor
+from transformers import AutoTokenizer
 from src.mlops.metrics import measure_time
 from src.mlops.observability import (
     observe_query,
     observe_docs,
-    observe_response
+    observe_response,
+    logger
 )
 
 load_dotenv()
 
-_bm25 = None
-_bm25_docs = None
+_llm_lingua_tokenizer = None
 
 conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
 memory = SqliteSaver(conn)
@@ -32,19 +38,133 @@ groq = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
 gemini = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
 llm = groq.with_fallbacks([gemini])
+llm_lingua = PromptCompressor(
+    model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank", 
+    use_llmlingua2=True
+)
+
 
 reranker = CrossEncoder(
     "BAAI/bge-reranker-v2-m3"
 )
 
 
-class RAGState(TypedDict, total=False):
+class RAGState(TypedDict):
     query: str
     rewritten_query: str
     context: str
     response: str
     filter: dict
     messages: Annotated[list[BaseMessage], add_messages]
+
+
+def _get_llm_lingua_tokenizer():
+    global _llm_lingua_tokenizer
+
+    if _llm_lingua_tokenizer is None:
+        _llm_lingua_tokenizer = AutoTokenizer.from_pretrained(
+            "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank"
+        )
+    
+    return _llm_lingua_tokenizer
+
+def busca_hibrida_pgvector(query: str, limit: int = 5, rrf_k: int = 60) -> list[Document]:
+    """
+    Executa busca híbrida nativa no PostgreSQL (pgvector + Full Text Search)
+    utilizando Reciprocal Rank Fusion (RRF) em uma única consulta SQL.
+    """
+
+    # Carregar e gerar os embeddings da query
+    embeddings_model = get_embeddings()
+    query_embedding = embeddings_model.embed_query(query)
+
+    #Formatar para o pgvector
+    query_embedding_str = f"[{','.join(map(str, query_embedding))}]"
+
+    # Consulta SQL RRF
+    sql_query = text(r"""
+        WITH vector_search AS (
+            SELECT
+                e.id,
+                ROW_NUMBER() OVER (ORDER BY e.embedding <=> CAST(:query_embedding AS vector)) as rank
+            FROM langchain_pg_embedding e
+            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            WHERE c.name = :collection
+            LIMIT 20
+        ),
+        fts_search AS (
+            SELECT
+                e.id,
+                ROW_NUMBER() OVER (
+                    ORDER BY ts_rank_cd(to_tsvector('portuguese', e.document), plainto_tsquery('portuguese', :query)) DESC
+                ) as rank
+            FROM langchain_pg_embedding e
+            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            WHERE c.name = :collection AND to_tsvector('portuguese', e.document) @@ plainto_tsquery('portuguese', :query)
+            LIMIT 20
+        )
+        SELECT
+            e.document,
+            e.cmetadata,
+            COALESCE(1.0 / (:rrf_k + v.rank), 0.0) + COALESCE(1.0 / (:rrf_k + f.rank), 0.0) as rrf_score
+            FROM vector_search v
+            FULL OUTER JOIN fts_search f ON v.id = f.id
+            JOIN langchain_pg_embedding e ON e.id = COALESCE(v.id, f.id)
+            ORDER BY rrf_score DESC
+            LIMIT :limit;
+    """)
+
+    results = []
+
+    engine = get_engine()
+
+    try:
+        with engine.connect() as conn:
+            
+            result = conn.execute(
+                sql_query,
+                {
+                    "query_embedding" : query_embedding_str,    # vetor da busca semântica
+                    "collection" : COLLECTION_NAME,    # Nome da coleção
+                    "query" : query,              # Query para FTS
+                    "rrf_k" : rrf_k,              # Constante RRF k para vetor
+                    "limit" : limit,              # Limite final de documentos
+                }
+            )
+
+            for row in result:
+                document_text = row[0]
+                metadata = row[1]
+                rrf_score = row[2]
+
+                # Se o metadado veio como string do banco, converte para dicionário Python
+                if isinstance(metadata, str):
+                    try:
+                        metadata = json.loads(metadata)
+                    except Exception:
+                        metadata = {}
+
+                metadata["rrf_score"] = rrf_score
+
+                tokenizer = _get_llm_lingua_tokenizer()
+
+                tokens = tokenizer.encode(document_text, truncation=True, max_length=480)
+
+                truncated_text = tokenizer.decode(tokens, skip_specials_tokens=True)
+
+                compressed_text = llm_lingua.compress_prompt([truncated_text], question=query)
+
+                logger.info(f"\nTokens originais: {compressed_text["origin_tokens"]}\ntokens compressados:{compressed_text["compressed_tokens"]}")
+
+                results.append(Document(page_content=compressed_text["compressed_prompt"], metadata=metadata)) #type: ignore
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"[ERRO BUSCA HÍBRIDA]: {e}")
+    
+    return results
+
 
 
 def inicializar_bm25():
@@ -142,7 +262,7 @@ def retrieval_debug(
             (query, doc.page_content)
             for doc in unique_docs
         ]
-        scores = reranker.predict(pairs)
+        scores = reranker.predict(pairs) # type: ignore
         ranked = sorted(
             zip(unique_docs, scores),
             key=lambda x: x[1],
@@ -186,100 +306,12 @@ def retrieval_debug(
 def retrieve_docs(state: RAGState) -> dict:
     
     query = state.get("rewritten_query") or state["query"]
-    filtro = state.get("filter")
-
-    vector_store = carregar_vector_store()
-
-    # =====================================================
-    # 1. VECTOR SEARCH COM MMR
-    # =====================================================
-
-    semantic_docs = vector_store.max_marginal_relevance_search(
-        query=query,
-        k=10,
-        fetch_k=max(20, 10),
-    )
-
     
-    # =====================================================
-    # 2. BM25 SEARCH
-    # =====================================================
+    reranked_docs = busca_hibrida_pgvector(query=query, limit=5)
 
-    bm25, bm25_docs = inicializar_bm25()
-    bm25_results = []
-
-    if bm25 is not None and bm25_docs:
-        tokenized_query = query.lower().split()
-        bm25_results = bm25.get_top_n(
-            tokenized_query,
-            bm25_docs,
-            n=10,
-        )
-
-    # =====================================================
-    # 3. MERGE HÍBRIDO
-    # =====================================================
-
-    combined_docs = semantic_docs + bm25_results
-    unique_docs = list({
-        doc.page_content: doc
-        for doc in combined_docs
-    }.values())
-
-    # =====================================================
-    # 4. RE-RANKING
-    # =====================================================
-
-    if unique_docs:
-        pairs = [
-            (query, doc.page_content)
-            for doc in unique_docs
-        ]
-        scores = reranker.predict(pairs)
-        ranked = sorted(
-            zip(unique_docs, scores),
-            key=lambda x: x[1],
-            reverse=True,
-        )
-    else:
-        ranked = []
-
-    MIN_RERANK_SCORE = -5.0
-
-    reranked_docs = [
-        doc
-        for doc, score in ranked
-        if score >= MIN_RERANK_SCORE
-    ][:5]
-    
-    # =====================================================
-    # 5. CONTEXT COMPRESSION
-    # =====================================================
-
-    # compressor_groq = LLMChainExtractor.from_llm(groq)
-    # compressor_gemini= LLMChainExtractor.from_llm(gemini)
-
-    # try:
-    #     compressed_docs = compressor_groq.compress_documents(
-    #         reranked_docs,
-    #         query
-    #     )
-    # except Exception:
-    #     compressed_docs = compressor_gemini.compress_documents(
-    #         reranked_docs,
-    #         query
-    #     )
-    # # =====================================================
-    # # 6. FORMATAR CONTEXTO
-    # # =====================================================
-
-    # if not compressed_docs:
-    #     compressed_docs = reranked_docs
-
-    
     context = formatar_docs(reranked_docs)
 
-    observe_docs(state["query"],query, reranked_docs)
+    observe_docs(state["query"],query,reranked_docs)
 
     return {
         "context": context
@@ -328,7 +360,6 @@ def contextualize_question(state: RAGState):
 
     prompt = f"""
     Data a conversa anterior e a pergunta atual, reescreva a pergunta atual para que ela seja completa e possa ser usada em uma busca vetorial.
-    Traduza a pergunta para INGLÊS, mantendo nomes no idioma original.
 
     Histórico da conversa:
     {history}
@@ -344,7 +375,7 @@ def contextualize_question(state: RAGState):
         "rewritten_query": rewritten.content
     }
 
-graph = StateGraph(RAGState)
+graph = StateGraph(RAGState) #type: ignore
 
 graph.add_node("contextualize", contextualize_question)
 graph.add_node("retrieve", retrieve_docs)

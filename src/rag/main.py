@@ -1,9 +1,13 @@
 import os
 
 from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
 from src.rag.rag_chain import app
+# pyrefly: ignore [missing-import]
 from src.rag.vector_store import carregar_vector_store
+# pyrefly: ignore [missing-import]
 from src.rag.ingestao import extrair_informacoes, extrair_transcricao, dividir_em_chunks, load_pdf, yt2doc
+# pyrefly: ignore [missing-import]
 from src.utils.project_utils import normalizar_caminho
 
 load_dotenv()

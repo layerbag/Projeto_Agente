@@ -1,19 +1,35 @@
+from httpx import head
+from langchain_core.messages import HumanMessage
 from uuid import uuid4
 import os
 import tempfile
 import sqlite3
 import json
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import FileResponse
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from api.schemas import ChatRequest, ChatResponse, DeleteDocumentRequest, RetrievalRequest
+from sqlalchemy import text
+from api.schemas import ChatRequest, ChatResponse, DeleteDocumentRequest, RetrievalRequest, AgentChatRequest, AgentChatResponse
 from src.rag.rag_chain import responder, reset_bm25, retrieval_debug
 from src.rag.ingestao import dividir_em_chunks, extrair_informacoes, extrair_transcricao
 from src.utils.project_utils import load_pdf, yt2doc, normalizar_caminho, delete_indexed_document
-from src.rag.vector_store import carregar_vector_store
+from src.rag.vector_store import carregar_vector_store, get_engine
+from src.agent.agent_graph import agent_graph, stream_agent_events
+from src.rag.document_summarizer import summarize_document
+from src.rag.document_summary_store import salvar_sumario, criar_tabela
 
-app = FastAPI(title="Projeto Agente API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    print("Fechando conexões")
+    get_engine().dispose()
+    print("Fechado com sucesso")
+
+app = FastAPI(title="Projeto Agente API", lifespan=lifespan)
+
 
 # Libera chamadas da interface web e de outros clientes para a API.
 app.add_middleware(
@@ -30,15 +46,57 @@ indexing_tasks: dict[str, dict] = {}
 # Serve os arquivos estáticos da interface em /static.
 app.mount("/static", StaticFiles(directory="web"), name="static")
 
-@app.get("/ui")
+@app.post("/agent/chat/stream")
+async def agent_chat_stream(request: AgentChatRequest, http_request: Request):
+    async def event_generator():
+        try:
+            async for event in stream_agent_events(request.message, request.session_id):
+                if await http_request.is_disconnected():
+                    break
+                yield f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
+            if not await http_request.is_disconnected():
+                yield "event: close\ndata: {}\n\n"
+        except asyncio.CancelledError:
+            pass
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+@app.post("/agent/chat")
+def agent_chat(request: AgentChatRequest):
+    config = {"configurable": {"thread_id" : request.session_id}}
+
+    response = agent_graph.invoke(
+        {"messages": [HumanMessage(content=request.message)]},
+        config=config,
+    )
+
+    last_content = response["messages"][-1].content
+    if isinstance(last_content, list):
+        last_content = "".join(
+            block.get("text", "") for block in last_content if isinstance(block, dict)
+        )
+
+    return AgentChatResponse(
+        session_id= str(request.session_id),
+        response=last_content,
+    )
+
+@app.get("/")
 def ui():
     # Entrega a página principal da interface web.
     return FileResponse("web/index.html")
 
-@app.get("/")
-def health_check():
-    # Endpoint simples para verificar se a API está no ar.
-    return {"status": "ok", "message": "API do agente está rodando"}
+# @app.get("/")
+# def health_check():
+#     # Endpoint simples para verificar se a API está no ar.
+#     return {"status": "ok", "message": "API do agente está rodando"}
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
@@ -78,6 +136,7 @@ def _normalize_role(role: str | None) -> str | None:
     if not role:
         return None
 
+    # pyrefly: ignore [unnecessary-type-conversion]
     normalized = str(role).lower()
     if "human" in normalized or "user" in normalized:
         return "user"
@@ -116,6 +175,7 @@ def _extract_messages(obj):
     def walk(item):
         if has_msgpack and isinstance(item, getattr(msgpack, "ExtType", type(None))):
             try:
+                # pyrefly: ignore [missing-attribute]
                 unpacked = msgpack.unpackb(item.data, raw=False)
                 return walk(unpacked)
             except Exception:
@@ -189,6 +249,7 @@ def get_session(session_id: str):
         rows = []
     finally:
         try:
+            # pyrefly: ignore [unbound-name]
             conn.close()
         except Exception:
             pass
@@ -222,6 +283,7 @@ def delete_session(session_id: str):
             deleted = True
     except Exception:
         try:
+            # pyrefly: ignore [unbound-name]
             conn.close()
         except Exception:
             pass
@@ -249,8 +311,13 @@ def process_index_pdf(temp_path: str, filename: str, source: str, task_id: str):
         if chunks:
             v_store = carregar_vector_store()
             v_store.add_documents(chunks)
-            # resetar o bm25 para não ficar desatualizado
-            reset_bm25()
+            
+            full_text = "\n\n".join(page.page_content for page in doc)
+            title = chunks[0].metadata["title"]
+            source_pdf = chunks[0].metadata["source"]
+            result = summarize_document(full_text, title)
+            salvar_sumario(source_pdf, title, "pdf", result["overall_summary"], result["topics"])
+
             indexing_tasks[task_id] = {"status": "completed", "source": source, "message": "Documento indexado com sucesso."}
             print(f"[BG TASK] Sucesso: {source} indexado.")
         else:
@@ -284,8 +351,11 @@ def processar_indexacao_youtube_bg(url: str, task_id: str):
         if chunks:
             v_store = carregar_vector_store()
             v_store.add_documents(chunks)
-            # 3. Reseta o BM25
-            reset_bm25()
+            
+            source_yt = doc[0].metadata["source"]
+            result = summarize_document(texto, str(title))
+            salvar_sumario(source_yt, str(title), "YouTube", result["overall_summary"], result["topics"])
+
             indexing_tasks[task_id] = {"status": "completed", "source": url, "message": f"Vídeo '{title}' indexado com sucesso."}
             print(f"[BG TASK] Sucesso: Vídeo do YouTube '{title}' indexado.")
         else:
@@ -304,6 +374,7 @@ async def index_docs(
     url: str | None = Form(None),
     file: UploadFile | None = File(None),
 ):
+    criar_tabela()
     vector_store = carregar_vector_store()
     task_id = str(uuid4())
 
@@ -313,9 +384,9 @@ async def index_docs(
             raise HTTPException(status_code=400, detail="Arquivo PDF não enviado.")
 
         source = normalizar_caminho(file.filename or "uploaded.pdf")
-        resultados = vector_store.get(where={"source": source})
+        resultados = vector_store.similarity_search("",filter={"source" : source})
 
-        if len(resultados["ids"]) > 0:
+        if len(resultados) > 0:
             return {"status": "already_indexed", "message": f"{source} já indexado"}
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -337,9 +408,9 @@ async def index_docs(
         if not url:
             raise HTTPException(status_code=400, detail="URL do YouTube não informada.")
         url = normalizar_caminho(url)
-        resultados = vector_store.get(where={"source": url})
+        resultados = vector_store.similarity_search("",filter={"source" : url})
 
-        if len(resultados["ids"]) > 0:
+        if len(resultados) > 0:
             return {"status": "already_indexed", "message": f"{url} já indexado"}
 
         background_tasks.add_task(
@@ -360,42 +431,37 @@ def get_indexing_status(task_id: str):
         raise HTTPException(status_code=404, detail="Tarefa de indexação não encontrada.")
     return task
 
-
 @app.get("/documents")
 def list_documents():
-    # Agrupa os chunks salvos no vector store por documento de origem.
-    vector_store = carregar_vector_store()
-    data = vector_store.get(include=["metadatas"])
+    engine = get_engine()
 
-    documents: dict[str, dict] = {}
+    try:
+        with engine.connect() as conn:
+            results = conn.execute(text("""
+                SELECT DISTINCT
+                    cmetadata->>'title' AS title,
+                    cmetadata->>'type' AS type
+                FROM langchain_pg_embedding
+                ORDER BY title
+            """))
 
-    for metadata in data.get("metadatas", []) or []:
-        metadata = metadata or {}
-        source = str(metadata.get("source") or metadata.get("url") or metadata.get("title") or "")
-        if not source:
-            continue
+            documents = [{"title" : row.title, "type" : row.type }for row in results]
 
-        title = str(metadata.get("title") or source)
-        doc_type = str(metadata.get("type") or "unknown")
-
-        if source not in documents:
-            documents[source] = {
-                "source": source,
-                "title": title,
-                "type": doc_type,
-                "count": 0,
+            return {
+                "sucess": True,
+                "documents": documents
             }
-
-        documents[source]["count"] += 1
-
-    return {"documents": list(documents.values())}
+    except Exception as e:
+        return {
+            "sucess": False,
+            "message": str(e)
+        }
 
 
 @app.delete("/documents")
 def delete_document(request: DeleteDocumentRequest):
     result = delete_indexed_document(request.source)
-    # resetar o bm25 para não ficar desatualizado
-    reset_bm25()
+    print(result["deleted"])
     if not result["deleted"]:
         raise HTTPException(status_code=404, detail=result["message"])
 
@@ -443,8 +509,10 @@ def sessions_db():
         try:
             # Usa a última mensagem do usuário como prévia da sessão.
             session_response = get_session(thread_id)
+            # pyrefly: ignore [bad-index]
             user_messages = [item for item in session_response["history"] if item["role"] == "user"]
             if user_messages:
+                # pyrefly: ignore [bad-index]
                 preview = _format_preview(user_messages[-1]["content"])
         except Exception:
             preview = None

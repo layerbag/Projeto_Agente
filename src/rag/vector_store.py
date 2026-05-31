@@ -2,12 +2,20 @@ import os
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from langchain_postgres.vectorstores import PGVector
 
 load_dotenv()
 _embeddings = None
 
-CHROMA_DIR = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma_db")
-COLLECTION = "youtube_videos"
+CONNECTION_STRING = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://postgres:my_secure_password@localhost:5432/orchestration_db"
+)
+
+_engine = create_engine(CONNECTION_STRING)
+
+COLLECTION_NAME = "documents_collection"
 
 # configura o modelo de embeddings
 def get_embeddings():
@@ -16,21 +24,28 @@ def get_embeddings():
 
     if _embeddings is None:
         _embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-mpnet-base-v2"
+            model_name="BAAI/bge-m3",
+            model_kwargs={"device": "cuda"},
+            encode_kwargs={"normalize_embeddings": True},
         )
     return _embeddings
+
+def get_engine():
+    """retorna a engine de conexão com o PGVector"""
+    global _engine
+    return _engine
 
 # Funções para criar, carregar e adicionar ao vector store do Chroma
 def criar_vector_store(chunks): # type: ignore
     """Cria ou carrega o vector store do Chroma e insere os chunks."""
-    print("Criando ou carregando o vector store do Chroma...")
-    db = Chroma.from_documents( # type: ignore
+    print("Criando e indexando dados no PostgreSQL (pgvector)")
+    db = PGVector.from_documents(
         documents=chunks,
         embedding=get_embeddings(),
-        collection_name=COLLECTION,
-        persist_directory=CHROMA_DIR
+        collection_name=COLLECTION_NAME,
+        connection=_engine,
+        use_jsonb=True
     )
-    print(f"{db._collection.count()} chunks indexados em {CHROMA_DIR}")  # type: ignore
     return db
 
 def add_vector_store(chunks): # type: ignore
@@ -45,10 +60,11 @@ def add_vector_store(chunks): # type: ignore
 
 def carregar_vector_store():
     """Carrega o vector store do Chroma existente."""
-    return Chroma(
-        persist_directory=CHROMA_DIR,
-        collection_name=COLLECTION,
-        embedding_function=get_embeddings()
+    return PGVector(
+        connection=_engine,
+        embeddings=get_embeddings(),
+        collection_name=COLLECTION_NAME,
+        use_jsonb=True
     )
 
 def busca_semantica(query:str, k:int = 3):

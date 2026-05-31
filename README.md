@@ -1,110 +1,80 @@
 # LLM Orchestration
 
-Projeto experimental de orquestração de LLMs com RAG híbrido, memória conversacional e interface via CLI, API FastAPI e página web estática.
+Projeto experimental de orquestração de LLMs com **RAG híbrido** (PGVector + FTS), **agente conversacional com tools** (LangGraph), sumarização de documentos, e interfaces via **CLI**, **API FastAPI** e **página web estática**.
 
-O objetivo do projeto é permitir que o usuário indexe documentos PDF e transcrições de vídeos do YouTube em um banco vetorial local, faça perguntas sobre esse conteúdo e receba respostas fundamentadas no contexto recuperado.
-
-## O que o projeto faz
-
-- Indexa PDFs enviados por caminho local ou upload pela API.
-- Indexa vídeos do YouTube a partir da transcrição.
-- Persiste embeddings localmente com ChromaDB.
-- Combina busca semântica, BM25 e re-ranking com CrossEncoder.
-- Comprime o contexto recuperado antes de enviar ao modelo.
-- Mantém histórico de conversa com LangGraph e SQLite.
-- Expõe uma CLI, uma API HTTP e uma interface web simples.
-
-## Como funciona
-
-O fluxo principal fica em `src/rag/rag_chain.py` e é orquestrado com LangGraph.
-
-```text
-Pergunta do usuário
-        |
-        v
-Contextualização da pergunta com histórico
-        |
-        v
-Busca semântica no ChromaDB + busca lexical BM25
-        |
-        v
-Mesclagem e remoção de duplicados
-        |
-        v
-Re-ranking com CrossEncoder
-        |
-        v
-Compressão de contexto com LLMChainExtractor
-        |
-        v
-Resposta final usando Groq com fallback para Gemini
-```
-
-Durante a ingestão, os documentos são carregados, divididos em chunks e gravados no ChromaDB. O caminho padrão do banco vetorial é `./data/chroma_db`, configurável por variável de ambiente.
+O usuário pode indexar PDFs e transcrições de vídeos do YouTube, fazer perguntas sobre o conteúdo, obter resumos e tópicos, e consultar informações atualizadas na web.
 
 ## Stack
 
-- Python 3.12+
-- Poetry
-- LangChain
-- LangGraph
-- FastAPI
-- ChromaDB
-- HuggingFace Embeddings
-- Sentence Transformers
-- CrossEncoder
+- Python 3.12+, Poetry
+- LangChain, LangGraph
+- FastAPI + Uvicorn
+- PostgreSQL + pgvector (PGVector)
+- ChromaDB (fallback legado)
+- HuggingFace Embeddings (`BAAI/bge-m3`)
+- CrossEncoder (`BAAI/bge-reranker-v2-m3`)
 - rank-bm25
-- Groq API
-- Google Gemini API
-- YouTube Transcript API
-- yt-dlp
-- pypdf
+- Groq API (`llama-3.1-8b-instant`), Google Gemini API (`gemini-2.5-flash` — fallback)
+- LLMLingua (compressão de contexto)
+- YouTube Transcript API, yt-dlp, pypdf
 
 ## Estrutura do projeto
 
-```text
+```
 llm-orchestration/
-├── api/
-│   ├── main.py              # API FastAPI e rotas da interface web
-│   └── schemas.py           # Schemas Pydantic
-├── data/
-│   └── chroma_db/           # Banco vetorial local do ChromaDB
+├── api/                     # API FastAPI + endpoints REST
+│   ├── main.py
+│   └── schemas.py
+├── data/                    # Dados persistentes locais
+│   └── chroma_db/
 ├── src/
+│   ├── agent/               # Grafo do agente, tools e prompts
 │   ├── chains/              # Exemplos de chains e agentes
 │   ├── mlops/               # Logging, tracing, métricas e observabilidade
-│   ├── rag/                 # Ingestão, vector store e cadeia RAG principal
+│   ├── rag/                 # Ingestão, vector store, sumarização e RAG chain
 │   └── utils/               # Utilitários de arquivos e documentos
-├── tests/                   # Estrutura de testes
+├── tests/
 ├── web/
 │   └── index.html           # Interface web estática
-├── .env.example             # Exemplo de variáveis de ambiente
-├── pyproject.toml           # Dependências e configuração Poetry
-├── poetry.lock              # Lockfile das dependências
+├── .env.example
+├── docker-compose.yml       # PostgreSQL + pgvector
+├── pyproject.toml
+├── poetry.lock
 └── README.md
 ```
 
-## Instalação a partir do repositório
+## Pré-requisitos
 
-Clone o repositório:
+- **Docker** (para o banco PostgreSQL com pgvector)
+- **Python 3.12+**
+- **Poetry**
+- Chaves de API: Groq (obrigatório), Google Gemini (recomendado para fallback)
+
+## Instalação
+
+### 1. Clone e instale dependências
 
 ```bash
 git clone <url-do-repositorio>
 cd llm-orchestration
-```
-
-Instale as dependências com Poetry:
-
-```bash
 poetry install
 ```
 
-Crie o arquivo `.env` a partir do exemplo:
+### 2. Suba o banco PostgreSQL
+
+```bash
+docker compose up -d
+```
+
+Isso inicia um container com PostgreSQL 16 + pgvector na porta `5432`, com banco `orchestration_db`.
+
+### 3. Configure as variáveis de ambiente
 
 ```bash
 cp .env.example .env
 ```
 
-Edite o `.env` com as suas chaves:
+Edite o `.env` com suas chaves:
 
 ```env
 GROQ_API_KEY=your_groq_key_here
@@ -116,108 +86,113 @@ CHROMA_PERSIST_DIR=./data/chroma_db
 EMBEDDING_MODEL=all-MiniLM-L6-v2
 ```
 
-As chaves `GROQ_API_KEY` e `GOOGLE_API_KEY` são usadas pelos modelos de resposta e fallback. As variáveis do LangChain/LangSmith são opcionais para tracing, mas já estão previstas no projeto.
+Apenas `GROQ_API_KEY` é obrigatória; as demais são opcionais.
 
 ## Executando pela CLI
-
-Inicie a aplicação no terminal:
 
 ```bash
 poetry run python -m src.rag.main
 ```
 
-Ao abrir, escolha uma operação:
+Menu interativo:
+- **I** — indexar documentos (PDF ou YouTube)
+- **C** — iniciar chat com RAG
+- **sair** — encerrar
+
+### Indexar documentos
 
 ```text
-Digite "I" para inserir novos documento ou "C" para iniciar o chat:
-```
-
-Para indexar documentos, use:
-
-```text
+Digite "I" para inserir novos documento ou "C" para iniciar o chat: i
+Digite "tipo(pdf ou vídeo) caminho" para indexar um documento ou "fim" para concluir:
 pdf /caminho/para/arquivo.pdf
 video https://www.youtube.com/watch?v=ID_DO_VIDEO
 fim
 ```
 
-Depois, escolha `C` e faça perguntas sobre o conteúdo indexado. Para encerrar o chat, digite `sair`.
+### Chat
 
-## Executando a API e a interface web
+```text
+Digite "I" para inserir novos documento ou "C" para iniciar o chat: c
+Digite sua pergunta (ou "sair" para encerrar): Qual o resumo do documento?
+```
 
-Suba a API FastAPI:
+## Executando a API
 
 ```bash
 poetry run uvicorn api.main:app --reload
 ```
 
-Com a API rodando, acesse:
+Com a API rodando:
 
-- Health check: `http://127.0.0.1:8000/`
-- Interface web: `http://127.0.0.1:8000/ui`
-- Documentação Swagger: `http://127.0.0.1:8000/docs`
+| Rota | Descrição |
+|---|---|
+| `GET /` | Health check |
+| `GET /ui` | Interface web estática |
+| `GET /docs` | Documentação Swagger |
+| `POST /chat` | Envia mensagem para o agente |
+| `POST /indexDoc` | Indexa PDF ou YouTube |
+| `GET /documents` | Lista documentos indexados |
+| `GET /sessions_db` | Lista sessões |
+| `GET /sessions/{id}` | Histórico de uma sessão |
+| `DELETE /sessions/{id}` | Remove uma sessão |
 
-Rotas principais:
-
-```text
-GET    /                     # verifica se a API está rodando
-GET    /ui                   # abre a interface web
-POST   /chat                 # envia mensagem para o agente
-POST   /indexDoc             # indexa PDF ou YouTube
-GET    /documents            # lista documentos indexados
-GET    /sessions_db          # lista sessões persistidas
-GET    /sessions/{session_id} # recupera histórico de uma sessão
-DELETE /sessions/{session_id} # remove uma sessão
-```
-
-Exemplo de chamada para o chat:
+### Exemplos
 
 ```bash
+# Chat
 curl -X POST http://127.0.0.1:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "O que os documentos dizem sobre o tema principal?"}'
+  -d '{"message": "Qual o resumo do documento X?"}'
+
+# Indexar PDF
+curl -X POST http://127.0.0.1:8000/indexDoc \
+  -F "type=pdf" -F "file=@/caminho/para/arquivo.pdf"
+
+# Indexar YouTube
+curl -X POST http://127.0.0.1:8000/indexDoc \
+  -F "type=YouTube" -F "url=https://www.youtube.com/watch?v=ID"
 ```
 
-Exemplo para indexar um PDF pela API:
+## Fluxo da aplicação
 
-```bash
-curl -X POST http://127.0.0.1:8000/indexDoc \
-  -F "type=pdf" \
-  -F "file=@/caminho/para/arquivo.pdf"
+### Ingestão
+
+```
+PDF / YouTube
+  → load_pdf() / extrair_transcricao()
+  → summarize_document() (Map-Reduce via LLM)
+  → salvar_sumario() (tabela document_summaries)
+  → semantic_chunking()
+  → PGVector (langchain_pg_embedding)
 ```
 
-Exemplo para indexar um vídeo do YouTube:
+### Pergunta do usuário (RAG clássico)
 
-```bash
-curl -X POST http://127.0.0.1:8000/indexDoc \
-  -F "type=YouTube" \
-  -F "url=https://www.youtube.com/watch?v=ID_DO_VIDEO"
+```
+Pergunta
+  → Contextualização com histórico
+  → Busca híbrida: PGVector + FTS + RRF
+  → Re-ranking com CrossEncoder
+  → Compressão com LLMLingua
+  → Resposta via Groq (fallback Gemini)
+```
+
+### Agente conversacional (LangGraph)
+
+```
+START → agent (LLM decide: responde ou chama tool)
+  ├─ tool_calls → tool_node → verifica_final
+  │   ├─ {"final": true} → final_response → END
+  │   └─ senão → agent → END
+  └─ sem tool_calls → END
 ```
 
 ## Persistência local
 
-O projeto grava dados locais em:
-
-- `data/chroma_db/`: coleção do ChromaDB com os chunks e embeddings.
-- `checkpoints.sqlite`: checkpoints do LangGraph usados para memória das conversas.
-- `rag.log`: logs da aplicação RAG.
-
-Esses arquivos permitem continuar usando documentos e históricos já indexados entre execuções.
-
-## Módulos importantes
-
-- `src/rag/ingestao.py`: extrai informações de PDFs e YouTube, cria documentos e chunks.
-- `src/rag/vector_store.py`: configura embeddings e acesso ao ChromaDB.
-- `src/rag/rag_chain.py`: define o grafo RAG, recuperação, re-ranking, compressão e resposta.
-- `src/rag/main.py`: interface CLI para indexação e chat.
-- `api/main.py`: API FastAPI, sessão de chat, indexação, listagem de documentos e UI.
-- `src/mlops/`: utilitários de métricas, logging, tracing, avaliação e observabilidade.
-
-## Observações de uso
-
-- Na primeira execução, os modelos de embedding e re-ranking podem ser baixados automaticamente.
-- A indexação de YouTube depende da disponibilidade de transcrição no vídeo.
-- O RAG responde com base no contexto recuperado dos documentos indexados.
-- O modelo principal configurado no código é `llama-3.1-8b-instant` via Groq, com fallback para `gemini-2.5-flash`.
+- **PostgreSQL (`orchestration_db`)**: vetores (`langchain_pg_embedding`), sumários (`document_summaries`)
+- **`checkpoints.sqlite`**: checkpoints do LangGraph (memória das conversas)
+- **`rag.log`**: logs da aplicação
+- **`data/chroma_db/`**: fallback legado do ChromaDB
 
 ## Licença
 

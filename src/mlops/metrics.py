@@ -1,25 +1,28 @@
 import time
+import asyncio
 from functools import wraps
+# pyrefly: ignore [missing-import]
 from src.mlops.logging import logger
 
 def measure_time(name: str):
     def decorator(func):
-        
+
         @wraps(func)
-        def wrapper(*args, **kwargs):
-
+        async def async_wrapper(*args, **kwargs):
             start = time.time()
-
-            result = func(*args, **kwargs)
-
-            ellapsed = time.time() - start
-
-            logger.info(
-                f"{name} took {ellapsed:.2f}s"
-            )
-
+            result = await func(*args, **kwargs)
+            logger.info(f"{name} took {time.time() - start:.2f}s")
             return result
-        
-        return wrapper
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            start = time.time()
+            result = func(*args, **kwargs)
+            logger.info(f"{name} took {time.time() - start:.2f}s")
+            return result
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        return sync_wrapper
     return decorator
 
