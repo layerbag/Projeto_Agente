@@ -16,7 +16,7 @@ def call_llm(prompt: str) -> str:
         
         except Exception as e:
             error = str(e)
-
+            print(error)
             if "429" in error:
                 logger.warning(f"LLM atingiu rate limit tentando novamente em {2 ** attempt}s")
                 time.sleep(2 ** attempt)
@@ -56,8 +56,12 @@ def summarize_chunk(chunk: str) -> str:
 
 def map_phase(chunks: list[str]) -> list[str]:
     summaries = []
+    big_document = len(chunks) >= 50
 
     for i, chunk in enumerate(chunks):
+        if i % 2 != 0 and big_document:
+            continue
+
         print(f"Chunk {i+1}/{len(chunks)}",end='\r',flush=True)
 
         summary = summarize_chunk(chunk)

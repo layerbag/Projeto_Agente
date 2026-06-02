@@ -1,13 +1,7 @@
-from pydantic._internal._validators import max_length_validator
-from langchain_core.output_parsers import json
 import json
 from typing import TypedDict, List, Annotated
-from rank_bm25 import BM25Okapi # type: ignore
-from sentence_transformers import CrossEncoder
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, BaseMessage, AIMessage
 from dotenv import load_dotenv
 from langgraph.graph.message import add_messages
@@ -21,10 +15,8 @@ from llmlingua import PromptCompressor
 from transformers import AutoTokenizer
 from src.mlops.metrics import measure_time
 from src.mlops.observability import (
-    observe_query,
     observe_docs,
-    observe_response,
-    logger
+    observe_response
 )
 
 load_dotenv()
@@ -37,15 +29,10 @@ memory = SqliteSaver(conn)
 groq = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
 gemini = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
-llm = groq.with_fallbacks([gemini])
+llm = gemini.with_fallbacks([groq])
 llm_lingua = PromptCompressor(
     model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank", 
     use_llmlingua2=True
-)
-
-
-reranker = CrossEncoder(
-    "BAAI/bge-reranker-v2-m3"
 )
 
 
@@ -68,7 +55,7 @@ def _get_llm_lingua_tokenizer():
     
     return _llm_lingua_tokenizer
 
-def busca_hibrida_pgvector(query: str, limit: int = 5, rrf_k: int = 60) -> list[Document]:
+def busca_hibrida_pgvector(query: str, limit: int = 10, rrf_k: int = 60) -> list[Document]:
     """
     Executa busca híbrida nativa no PostgreSQL (pgvector + Full Text Search)
     utilizando Reciprocal Rank Fusion (RRF) em uma única consulta SQL.
@@ -146,17 +133,9 @@ def busca_hibrida_pgvector(query: str, limit: int = 5, rrf_k: int = 60) -> list[
 
                 metadata["rrf_score"] = rrf_score
 
-                tokenizer = _get_llm_lingua_tokenizer()
+                #logger.info(f"\nTokens originais: {compressed_text["origin_tokens"]}\ntokens compressados:{compressed_text["compressed_tokens"]}")
 
-                tokens = tokenizer.encode(document_text, truncation=True, max_length=480)
-
-                truncated_text = tokenizer.decode(tokens, skip_specials_tokens=True)
-
-                compressed_text = llm_lingua.compress_prompt([truncated_text], question=query)
-
-                logger.info(f"\nTokens originais: {compressed_text["origin_tokens"]}\ntokens compressados:{compressed_text["compressed_tokens"]}")
-
-                results.append(Document(page_content=compressed_text["compressed_prompt"], metadata=metadata)) #type: ignore
+                results.append(Document(page_content=document_text, metadata=metadata)) #type: ignore
 
     except Exception as e:
         import traceback
@@ -164,50 +143,6 @@ def busca_hibrida_pgvector(query: str, limit: int = 5, rrf_k: int = 60) -> list[
         print(f"[ERRO BUSCA HÍBRIDA]: {e}")
     
     return results
-
-
-
-def inicializar_bm25():
-    global _bm25
-    global _bm25_docs
-
-    if _bm25 is not None:
-        return _bm25, _bm25_docs
-    
-    vector_store = carregar_vector_store()
-
-    data = vector_store.get()
-
-    textos = data.get("documents") or []
-    metadatas = data.get("metadatas") or []
-
-    if not textos:
-        _bm25 = None
-        _bm25_docs = []
-        return _bm25, _bm25_docs
-
-    docs = []
-
-    for texto, metadata in zip(textos, metadatas):
-        fake_doc = type("Doc",(),{})()
-        fake_doc.page_content = texto
-        fake_doc.metadata = metadata
-        docs.append(fake_doc)
-    
-    tokenized_docs = [
-        doc.page_content.lower().split() for doc in docs
-    ]
-
-    _bm25 = BM25Okapi(tokenized_docs)
-    _bm25_docs = docs
-
-    return _bm25, _bm25_docs
-
-def reset_bm25():
-    global _bm25, _bm25_docs
-    
-    _bm25 = None
-    _bm25_docs = None
 
 
 def _serializar_doc(doc, rank: int, score: float | None = None, include_content: bool = False):
@@ -232,161 +167,176 @@ def retrieval_debug(
     top_k: int = 5,
     include_content: bool = False,
 ) -> dict:
-    vector_store = carregar_vector_store()
+    engine = get_engine()
+    embeddings_model = get_embeddings()
+    query_embedding = embeddings_model.embed_query(query)
+    query_embedding_str = f"[{','.join(map(str, query_embedding))}]"
 
-    semantic_docs = vector_store.max_marginal_relevance_search(
-        query=query,
-        k=semantic_k,
-        fetch_k=max(semantic_k * 2, semantic_k),
-    )
+    with engine.connect() as conn:
 
-    bm25, bm25_docs = inicializar_bm25()
-    bm25_results = []
+        vector_sql = text("""
+            SELECT e.document, e.cmetadata,
+                   e.embedding <=> CAST(:query_embedding AS vector) as distance
+            FROM langchain_pg_embedding e
+            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            WHERE c.name = :collection
+            ORDER BY distance
+            LIMIT :limit
+        """)
 
-    if bm25 is not None and bm25_docs:
-        tokenized_query = query.lower().split()
-        bm25_results = bm25.get_top_n(
-            tokenized_query,
-            bm25_docs,
-            n=bm25_k,
-        )
+        vector_docs = []
+        for row in conn.execute(vector_sql, {
+            "query_embedding": query_embedding_str,
+            "collection": COLLECTION_NAME,
+            "limit": semantic_k,
+        }):
+            doc_text = row[0]
+            metadata = row[1]
+            distance = row[2]
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            metadata["distance"] = float(distance)
+            vector_docs.append(Document(page_content=doc_text, metadata=metadata))
 
-    combined_docs = semantic_docs + bm25_results
-    unique_docs = list({
-        doc.page_content: doc
-        for doc in combined_docs
-    }.values())
+        fts_sql = text("""
+            SELECT e.document, e.cmetadata,
+                   ts_rank_cd(to_tsvector('portuguese', e.document), plainto_tsquery('portuguese', :query)) as rank
+            FROM langchain_pg_embedding e
+            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            WHERE c.name = :collection
+              AND to_tsvector('portuguese', e.document) @@ plainto_tsquery('portuguese', :query)
+            ORDER BY rank DESC
+            LIMIT :limit
+        """)
 
-    if unique_docs:
-        pairs = [
-            (query, doc.page_content)
-            for doc in unique_docs
-        ]
-        scores = reranker.predict(pairs) # type: ignore
-        ranked = sorted(
-            zip(unique_docs, scores),
-            key=lambda x: x[1],
-            reverse=True,
-        )
-    else:
-        ranked = []
+        fts_docs = []
+        for row in conn.execute(fts_sql, {
+            "query": query,
+            "collection": COLLECTION_NAME,
+            "limit": bm25_k,
+        }):
+            doc_text = row[0]
+            metadata = row[1]
+            rank = row[2]
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            metadata["fts_rank"] = float(rank)
+            fts_docs.append(Document(page_content=doc_text, metadata=metadata))
 
-    MIN_RERANK_SCORE = -5.0
-
-    reranked_docs = [
-        (doc, score)
-        for doc, score in ranked
-        if score >= MIN_RERANK_SCORE
-    ][:top_k]
+    hybrid_docs = busca_hibrida_pgvector(query=query, limit=top_k)
 
     return {
         "query": query,
         "counts": {
-            "semantic": len(semantic_docs),
-            "bm25": len(bm25_results),
-            "combined": len(combined_docs),
-            "unique": len(unique_docs),
-            "reranked": len(reranked_docs),
+            "vector": len(vector_docs),
+            "fts": len(fts_docs),
+            "hybrid": len(hybrid_docs),
         },
-        "semantic": [
-            _serializar_doc(doc, rank=i + 1, include_content=include_content)
-            for i, doc in enumerate(semantic_docs)
+        "vector": [
+            _serializar_doc(doc, rank=i + 1, score=doc.metadata.get("distance"), include_content=include_content)
+            for i, doc in enumerate(vector_docs)
         ],
-        "bm25": [
-            _serializar_doc(doc, rank=i + 1, include_content=include_content)
-            for i, doc in enumerate(bm25_results)
+        "fts": [
+            _serializar_doc(doc, rank=i + 1, score=doc.metadata.get("fts_rank"), include_content=include_content)
+            for i, doc in enumerate(fts_docs)
         ],
-        "reranked": [
-            _serializar_doc(doc, rank=i + 1, score=score, include_content=include_content)
-            for i, (doc, score) in enumerate(reranked_docs)
+        "hybrid": [
+            _serializar_doc(doc, rank=i + 1, score=doc.metadata.get("rrf_score"), include_content=include_content)
+            for i, doc in enumerate(hybrid_docs)
         ],
     }
 
-@measure_time("retrieve_docs")
-def retrieve_docs(state: RAGState) -> dict:
+# @measure_time("retrieve_docs")
+# def retrieve_docs(state: RAGState) -> dict:
     
-    query = state.get("rewritten_query") or state["query"]
+#     query = state.get("rewritten_query") or state["query"]
     
-    reranked_docs = busca_hibrida_pgvector(query=query, limit=5)
+#     reranked_docs = busca_hibrida_pgvector(query=query, limit=5)
 
-    context = formatar_docs(reranked_docs)
+#     context = formatar_docs(reranked_docs)
 
-    observe_docs(state["query"],query,reranked_docs)
+#     observe_docs(state["query"],query,reranked_docs)
 
-    return {
-        "context": context
-    }
+#     return {
+#         "context": context
+#     }
 
-@measure_time("generate_answer")
-def generate_answer(state: RAGState):
-    prompt = ChatPromptTemplate.from_messages([
-        ("system",
-        """Você é um assistente que responde APENAS com base no contexto. Não invente nada!
-        Caso não saiba a resposta com base no contexto, responda \"Não tenho informação sobre isso\"
+# @measure_time("generate_answer")
+# def generate_answer(state: RAGState):
+#     prompt = ChatPromptTemplate.from_messages([
+#         ("system",
+#         """Você é um assistente que responde APENAS com base no contexto. Não invente nada!
+#         Caso não saiba a resposta com base no contexto, responda \"Não tenho informação sobre isso\"
          
-        Contexto:
-        {context}
-        """),
-        MessagesPlaceholder("messages"),
-        ("human","{query}")
-    ])
+#         Contexto:
+#         {context}
+#         """),
+#         MessagesPlaceholder("messages"),
+#         ("human","{query}")
+#     ])
 
-    chain = prompt | llm | StrOutputParser()
+#     chain = prompt | llm | StrOutputParser()
 
-    response = chain.invoke({
-        "context": state["context"],
-        "query": state["query"],
-        "messages": state.get("messages",[])
-    })
+#     response = chain.invoke({
+#         "context": state["context"],
+#         "query": state["query"],
+#         "messages": state.get("messages",[])
+#     })
 
-    observe_response(response)
+#     observe_response(response)
 
-    return {
-        "response": response,
-        "messages": state.get("messages", []) + [
-            HumanMessage(content=state["query"]),
-            AIMessage(content=response)
-        ]
-    }
+#     return {
+#         "response": response,
+#         "messages": state.get("messages", []) + [
+#             HumanMessage(content=state["query"]),
+#             AIMessage(content=response)
+#         ]
+#     }
 
-def contextualize_question(state: RAGState):
-    query = state["query"]
-    messages = state.get("messages", [])
+# def contextualize_question(state: RAGState):
+#     query = state["query"]
+#     messages = state.get("messages", [])
 
-    history = "\n".join(
-        f"{msg.type}: {msg.content}"
-        for msg in messages[-8:]
-    )
+#     history = "\n".join(
+#         f"{msg.type}: {msg.content}"
+#         for msg in messages[-8:]
+#     )
 
-    prompt = f"""
-    Data a conversa anterior e a pergunta atual, reescreva a pergunta atual para que ela seja completa e possa ser usada em uma busca vetorial.
+#     prompt = f"""
+#     Data a conversa anterior e a pergunta atual, reescreva a pergunta atual para que ela seja completa e possa ser usada em uma busca vetorial.
 
-    Histórico da conversa:
-    {history}
+#     Histórico da conversa:
+#     {history}
 
-    Pergunta atual: {query}
+#     Pergunta atual: {query}
 
-    retorne apenas a pergunta reescrita.
-    """
+#     retorne apenas a pergunta reescrita.
+#     """
 
-    rewritten = llm.invoke(prompt)
-    print(rewritten.content)
-    return {
-        "rewritten_query": rewritten.content
-    }
+#     rewritten = llm.invoke(prompt)
+#     print(rewritten.content)
+#     return {
+#         "rewritten_query": rewritten.content
+#     }
 
-graph = StateGraph(RAGState) #type: ignore
+# graph = StateGraph(RAGState) #type: ignore
 
-graph.add_node("contextualize", contextualize_question)
-graph.add_node("retrieve", retrieve_docs)
-graph.add_node("generate", generate_answer)
+# graph.add_node("contextualize", contextualize_question)
+# graph.add_node("retrieve", retrieve_docs)
+# graph.add_node("generate", generate_answer)
 
-graph.set_entry_point("contextualize")
-graph.add_edge("contextualize", "retrieve")
-graph.add_edge("retrieve", "generate")
-graph.add_edge("generate", END)
+# graph.set_entry_point("contextualize")
+# graph.add_edge("contextualize", "retrieve")
+# graph.add_edge("retrieve", "generate")
+# graph.add_edge("generate", END)
 
-app = graph.compile(checkpointer=memory)
+# app = graph.compile(checkpointer=memory)
     
 # Formatar os documentos recuperados para o prompt
 def formatar_docs(docs): # type: ignore
@@ -411,36 +361,24 @@ def formatar_docs(docs): # type: ignore
     
     return "\n\n---\n\n".join(textos)
 
-# Recuperar os documentos relevantes para a query usando o vector store
-def recuperar_docs(state: RAGState) -> dict:
-    """
-    Recebe o estado completo e retorna apenas o que será atualizado.
-    """
-    query = state["query"]
-    docs = carregar_vector_store().similarity_search(query, k=4)
+# # Recuperar os documentos relevantes para a query usando o vector store
+# def recuperar_docs(state: RAGState) -> dict:
+#     """
+#     Recebe o estado completo e retorna apenas o que será atualizado.
+#     """
+#     query = state["query"]
+#     docs = carregar_vector_store().similarity_search(query, k=4)
 
-    return {"context": formatar_docs(docs)}
+#     return {"context": formatar_docs(docs)}
 
-def responder (request:str, session:str) -> str:
-    config = {"configurable": {"thread_id": session}}
+# def responder (request:str, session:str) -> str:
+#     config = {"configurable": {"thread_id": session}}
 
-    response = app.invoke(
-        {"query": request},
-            config = config
-    )
+#     response = app.invoke(
+#         {"query": request},
+#             config = config
+#     )
 
-    return response['response']
+#     return response['response']
 
-# main para teste
-if __name__ == "__main__":
-    perguntas = [
-        "O que acontece no vídeo?",
-        "Qual é a reação do apresentador?",
-        "A quem ele se refere quando fala 'oque que você fez?'?"
-        "Sobre qual jogo é o vídeo?"
-    ]
 
-    for pergunta in perguntas:
-        print(f"\nPergunta: {pergunta}")
-        resposta = app.invoke({"query": pergunta})
-        print("\nresposta:\n", resposta)

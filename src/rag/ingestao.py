@@ -5,12 +5,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from youtube_transcript_api import YouTubeTranscriptApi
 from langchain_core.documents import Document
 from src.rag.vector_store import get_embeddings
-from langchain_experimental.text_splitter import SemanticChunker
 import re
-# pyrefly: ignore [missing-import]
-from src.utils.project_utils import load_pdf, yt2doc
-
-VIDEO_URL = "https://www.youtube.com/watch?v=JsD1ewgzLJc"
 
 try:
     _BGE_TOKENIZER = AutoTokenizer.from_pretrained("BAAI/bge-m3")
@@ -150,12 +145,4 @@ def semantic_chunking(doc: Document, threshold_percentile: float = 85.0, max_chu
 
     return final_chunks
 
-# main para teste
-if __name__ == "__main__":
-    video_id, title = extrair_informacoes(VIDEO_URL)
-    transcricao = extrair_transcricao(video_id)
-    metadata = {"type": "YouTube", "video_id": video_id, "title": title, "source": VIDEO_URL} # type: ignore
-    pdfList = load_pdf("./Currículo_Gabriel_Martins.pdf")
-    # pyrefly: ignore [unexpected-keyword]
-    chunks = dividir_em_chunks(pdf_docs=pdfList, yt_docs=yt2doc(transcricao, metadata))
-    
+

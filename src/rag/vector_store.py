@@ -1,6 +1,5 @@
 import os
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from langchain_postgres.vectorstores import PGVector
@@ -48,15 +47,15 @@ def criar_vector_store(chunks): # type: ignore
     )
     return db
 
-def add_vector_store(chunks): # type: ignore
-    if not chunks or len(chunks) == 0:
-        print("Nenhum chunk para adicionar ao vector store.")
-        return
-    """Adiciona novos chunks ao vector store existente."""
-    print("Adicionando novos chunks ao vector store do Chroma...")
-    db = carregar_vector_store()
-    db.add_documents(chunks)  # type: ignore
-    print(f"{db._collection.count()} chunks agora indexados em {CHROMA_DIR}")  # type: ignore
+# def add_vector_store(chunks): # type: ignore
+#     if not chunks or len(chunks) == 0:
+#         print("Nenhum chunk para adicionar ao vector store.")
+#         return
+#     """Adiciona novos chunks ao vector store existente."""
+#     print("Adicionando novos chunks ao vector store do Chroma...")
+#     db = carregar_vector_store()
+#     db.add_documents(chunks)  # type: ignore
+#     print(f"{db._collection.count()} chunks agora indexados em {CHROMA_DIR}")  # type: ignore
 
 def carregar_vector_store():
     """Carrega o vector store do Chroma existente."""
@@ -67,10 +66,10 @@ def carregar_vector_store():
         use_jsonb=True
     )
 
-def busca_semantica(query:str, k:int = 3):
-    """Busca os k chunks mais relevantes para a query usando busca semântica."""
-    vector_store = carregar_vector_store()
-    resultados = vector_store.similarity_search(query, k=k)
-    for i, doc in enumerate(resultados):
-        print(f"\n Chunk {i+1}: \n{doc.page_content}")
-    return resultados
+# def busca_semantica(query:str, k:int = 3):
+#     """Busca os k chunks mais relevantes para a query usando busca semântica."""
+#     vector_store = carregar_vector_store()
+#     resultados = vector_store.similarity_search(query, k=k)
+#     for i, doc in enumerate(resultados):
+#         print(f"\n Chunk {i+1}: \n{doc.page_content}")
+#     return resultados

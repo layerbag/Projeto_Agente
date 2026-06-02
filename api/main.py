@@ -1,4 +1,3 @@
-from httpx import head
 from langchain_core.messages import HumanMessage
 from uuid import uuid4
 import os
@@ -13,20 +12,23 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from api.schemas import ChatRequest, ChatResponse, DeleteDocumentRequest, RetrievalRequest, AgentChatRequest, AgentChatResponse
-from src.rag.rag_chain import responder, reset_bm25, retrieval_debug
+from src.rag.rag_chain import retrieval_debug
 from src.rag.ingestao import dividir_em_chunks, extrair_informacoes, extrair_transcricao
 from src.utils.project_utils import load_pdf, yt2doc, normalizar_caminho, delete_indexed_document
 from src.rag.vector_store import carregar_vector_store, get_engine
-from src.agent.agent_graph import agent_graph, stream_agent_events
+from src.agent.agent_graph import stream_agent_events, init_async_graph, close_async_graph
 from src.rag.document_summarizer import summarize_document
 from src.rag.document_summary_store import salvar_sumario, criar_tabela
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Compila o grafo async uma única vez e abre a conexão SQLite persistente
+    await init_async_graph()
     yield
-    print("Fechando conexões")
+    # Encerra a conexão SQLite do grafo async e o engine do banco de dados
+    await close_async_graph()
     get_engine().dispose()
-    print("Fechado com sucesso")
+    print("Conexões encerradas com sucesso")
 
 app = FastAPI(title="Projeto Agente API", lifespan=lifespan)
 
@@ -68,67 +70,10 @@ async def agent_chat_stream(request: AgentChatRequest, http_request: Request):
         },
     )
 
-@app.post("/agent/chat")
-def agent_chat(request: AgentChatRequest):
-    config = {"configurable": {"thread_id" : request.session_id}}
-
-    response = agent_graph.invoke(
-        {"messages": [HumanMessage(content=request.message)]},
-        config=config,
-    )
-
-    last_content = response["messages"][-1].content
-    if isinstance(last_content, list):
-        last_content = "".join(
-            block.get("text", "") for block in last_content if isinstance(block, dict)
-        )
-
-    return AgentChatResponse(
-        session_id= str(request.session_id),
-        response=last_content,
-    )
-
 @app.get("/")
 def ui():
     # Entrega a página principal da interface web.
     return FileResponse("web/index.html")
-
-# @app.get("/")
-# def health_check():
-#     # Endpoint simples para verificar se a API está no ar.
-#     return {"status": "ok", "message": "API do agente está rodando"}
-
-@app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
-    # Usa uma sessão existente ou cria uma nova para manter o histórico da conversa.
-    session_id = request.session_id or str(uuid4())
-
-    if session_id not in sessions:
-        sessions[session_id] = []
-
-    sessions[session_id].append({
-        "role": "user",
-        "content": request.message,
-    })
-
-    try:
-        # Envia a mensagem para a cadeia RAG/agente e associa a resposta à sessão.
-        resposta = responder(request.message, session_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao executar o agente: {e}"
-        )
-
-    sessions[session_id].append({
-        "role": "assistant",
-        "content": resposta
-    })
-
-    return ChatResponse(
-        session_id=session_id,
-        response=resposta,
-    )
 
 
 def _normalize_role(role: str | None) -> str | None:

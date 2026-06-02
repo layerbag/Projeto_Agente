@@ -286,11 +286,13 @@
     }
 
     .sessions-list li::before {
-      font-family: 'lucide';
-      content: '\e99a';
-      /* chat bubble icon identifier */
-      font-size: 14px;
-      opacity: 0.6;
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: var(--radius-full);
+      box-shadow: 0 0 8px var(--success);
     }
 
     .sessions-list li:hover {
@@ -937,9 +939,19 @@
       line-height: 1;
       flex-shrink: 0;
     }
-    .stop-btn:hover { background: #dc2626; }
-    .stop-btn.visible { display: inline-flex; }
-    .stop-btn i { width: 16px; height: 16px; }
+
+    .stop-btn:hover {
+      background: #dc2626;
+    }
+
+    .stop-btn.visible {
+      display: inline-flex;
+    }
+
+    .stop-btn i {
+      width: 16px;
+      height: 16px;
+    }
 
     .animate-spin {
       animation: spin 1s linear infinite;
@@ -1313,17 +1325,17 @@
 
       <div id="retrievalResponse" style="display: none; flex-direction: column; gap: 24px; margin-top: 8px;">
         <div class="panel-card">
-          <h3><i data-lucide="bar-chart-2"></i> Resultados da Busca Semântica</h3>
+          <h3><i data-lucide="bar-chart-2"></i> Busca Semântica (pgvector)</h3>
           <div id="OutputSemanticRetrieval"></div>
         </div>
 
         <div class="panel-card">
-          <h3><i data-lucide="align-left"></i> Resultados da Busca Léxica (Bm25)</h3>
+          <h3><i data-lucide="align-left"></i> Busca Full-Text Search (PostgreSQL FTS)</h3>
           <div id="OutputLexicalRetrieval"></div>
         </div>
 
         <div class="panel-card">
-          <h3><i data-lucide="award"></i> Reranked (Resultados Finais Reordenados)</h3>
+          <h3><i data-lucide="award"></i> Híbrido (RRF — produção)</h3>
           <div id="OutputRerankRetrieval"></div>
         </div>
       </div>
@@ -2112,10 +2124,9 @@
             : data.detail;
           throw new Error(detail || "Erro ao buscar Retrieval.");
         }
-        console.log(data.semantic)
-        renderRetrievalResults('OutputSemanticRetrieval', data.semantic);
-        renderRetrievalResults('OutputLexicalRetrieval', data.bm25);
-        renderRetrievalResults('OutputRerankRetrieval', data.reranked);
+        renderRetrievalResults('OutputSemanticRetrieval', data.vector);
+        renderRetrievalResults('OutputLexicalRetrieval', data.fts);
+        renderRetrievalResults('OutputRerankRetrieval', data.hybrid);
 
         retrievalResponse.style.display = '';
 
