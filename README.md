@@ -11,8 +11,6 @@ O usuário pode indexar PDFs e transcrições do YouTube, perguntar sobre o cont
 - FastAPI + Uvicorn (SSE streaming)
 - PostgreSQL 16 + pgvector
 - HuggingFace Embeddings (`BAAI/bge-m3`, `sentence-transformers`)
-- CrossEncoder (`BAAI/bge-reranker-v2-m3`) — re-ranking
-- rank-bm25 — busca lexical
 - Groq (`llama-3.1-8b-instant`) + Google Gemini (`gemini-2.5-flash`, fallback)
 - LLMLingua — compressão de contexto
 - YouTube Transcript API, yt-dlp, pypdf
